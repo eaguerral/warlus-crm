@@ -18,6 +18,10 @@ app.get('/', (req, res) => {
     });
 });
 
-app.listen(PORT, () => {
-    console.log(`Catalogo service ejecutándose en puerto ${PORT}`);
-});
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`Catalogo service ejecutándose en puerto ${PORT}`);
+    });
+}
+
+module.exports = app;
