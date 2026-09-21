@@ -21,9 +21,11 @@ stages:
 
   - stage: Validate
     displayName: Validación de microservicios
+
     jobs:
       - job: ValidateServices
         displayName: Validar Node.js, dependencias y pruebas
+
         steps:
 
           - task: UseNode@1
@@ -44,7 +46,7 @@ stages:
             workingDirectory: src/auth
             displayName: Validar sintaxis Auth
 
-          - script: npm test -- --test-reporter=junit --test-reporter-destination=test-results.xml
+          - script: node --test --test-reporter=junit > test-results.xml
             workingDirectory: src/auth
             displayName: Ejecutar pruebas Auth
 
@@ -56,7 +58,7 @@ stages:
             workingDirectory: src/catalogo
             displayName: Validar sintaxis Catálogo
 
-          - script: npm test -- --test-reporter=junit --test-reporter-destination=test-results.xml
+          - script: node --test --test-reporter=junit > test-results.xml
             workingDirectory: src/catalogo
             displayName: Ejecutar pruebas Catálogo
 
@@ -68,7 +70,7 @@ stages:
             workingDirectory: src/pedidos
             displayName: Validar sintaxis Pedidos
 
-          - script: npm test -- --test-reporter=junit --test-reporter-destination=test-results.xml
+          - script: node --test --test-reporter=junit > test-results.xml
             workingDirectory: src/pedidos
             displayName: Ejecutar pruebas Pedidos
 
@@ -80,7 +82,7 @@ stages:
             workingDirectory: src/pagos
             displayName: Validar sintaxis Pagos
 
-          - script: npm test -- --test-reporter=junit --test-reporter-destination=test-results.xml
+          - script: node --test --test-reporter=junit > test-results.xml
             workingDirectory: src/pagos
             displayName: Ejecutar pruebas Pagos
 
@@ -90,9 +92,11 @@ stages:
             inputs:
               testResultsFormat: JUnit
               testResultsFiles: 'src/**/test-results.xml'
+              searchFolder: '$(System.DefaultWorkingDirectory)'
               mergeTestResults: true
               testRunTitle: 'Pruebas automáticas Warlus CRM'
               failTaskOnFailedTests: true
+              failTaskOnMissingResultsFile: true
 
   - stage: DockerBuild
     displayName: Construcción de imágenes Docker
@@ -102,6 +106,7 @@ stages:
     jobs:
       - job: BuildImages
         displayName: Construir microservicios
+
         steps:
 
           - script: docker --version
