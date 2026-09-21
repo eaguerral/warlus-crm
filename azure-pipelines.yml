@@ -26,10 +26,10 @@ stages:
         displayName: Validar Node.js y dependencias
         steps:
 
-          - task: NodeTool@0
+          - task: UseNode@1
             displayName: Instalar Node.js 22
             inputs:
-              versionSpec: $(nodeVersion)
+              version: $(nodeVersion)
 
           - script: |
               node --version
