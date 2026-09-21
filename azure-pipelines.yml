@@ -126,3 +126,60 @@ stages:
 
           - script: docker images
             displayName: Verificar imágenes generadas
+
+  - stage: Deploy
+    displayName: Despliegue continuo de Warlus CRM
+    dependsOn: DockerBuild
+    condition: succeeded()
+
+    jobs:
+      - job: DeployCompose
+        displayName: Desplegar servicios con Docker Compose
+
+        steps:
+
+          - powershell: |
+              docker compose -p warlus-crm --env-file .env.example down --remove-orphans
+              docker compose -p warlus-crm --env-file .env.example up -d --build
+            displayName: Desplegar servicios
+
+          - powershell: |
+              Start-Sleep -Seconds 15
+              docker compose -p warlus-crm --env-file .env.example ps
+            displayName: Verificar contenedores
+
+          - powershell: |
+              $services = @(
+                  @{
+                      Name = "Auth"
+                      Url = "http://localhost:8081/health"
+                  },
+                  @{
+                      Name = "Catalogo"
+                      Url = "http://localhost:8082/health"
+                  },
+                  @{
+                      Name = "Pedidos"
+                      Url = "http://localhost:8083/health"
+                  },
+                  @{
+                      Name = "Pagos"
+                      Url = "http://localhost:8084/health"
+                  }
+              )
+
+              foreach ($service in $services) {
+
+                  Write-Host "Verificando $($service.Name)..."
+
+                  $response = Invoke-RestMethod `
+                      -Uri $service.Url `
+                      -Method Get
+
+                  if ($response.status -ne "OK") {
+                      throw "El servicio $($service.Name) no respondió correctamente."
+                  }
+
+                  Write-Host "$($service.Name): OK"
+              }
+            displayName: Verificar endpoints de salud
