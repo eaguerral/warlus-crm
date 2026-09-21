@@ -1,0 +1,98 @@
+trigger:
+  branches:
+    include:
+      - dev
+
+pr:
+  branches:
+    include:
+      - dev
+      - qa
+      - prod
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  nodeVersion: '22.x'
+
+stages:
+
+  - stage: Validate
+    displayName: Validación de microservicios
+    jobs:
+      - job: ValidateServices
+        displayName: Validar Node.js y dependencias
+        steps:
+
+          - task: NodeTool@0
+            displayName: Instalar Node.js 22
+            inputs:
+              versionSpec: $(nodeVersion)
+
+          - script: |
+              node --version
+              npm --version
+            displayName: Verificar versiones
+
+          - script: npm ci
+            workingDirectory: src/auth
+            displayName: Instalar dependencias Auth
+
+          - script: node --check index.js
+            workingDirectory: src/auth
+            displayName: Validar sintaxis Auth
+
+          - script: npm ci
+            workingDirectory: src/catalogo
+            displayName: Instalar dependencias Catálogo
+
+          - script: node --check index.js
+            workingDirectory: src/catalogo
+            displayName: Validar sintaxis Catálogo
+
+          - script: npm ci
+            workingDirectory: src/pedidos
+            displayName: Instalar dependencias Pedidos
+
+          - script: node --check index.js
+            workingDirectory: src/pedidos
+            displayName: Validar sintaxis Pedidos
+
+          - script: npm ci
+            workingDirectory: src/pagos
+            displayName: Instalar dependencias Pagos
+
+          - script: node --check index.js
+            workingDirectory: src/pagos
+            displayName: Validar sintaxis Pagos
+
+
+  - stage: DockerBuild
+    displayName: Construcción de imágenes Docker
+    dependsOn: Validate
+    condition: succeeded()
+
+    jobs:
+      - job: BuildImages
+        displayName: Construir microservicios
+        steps:
+
+          - script: docker --version
+            displayName: Verificar Docker
+
+          - script: docker build -t warlus-auth:$(Build.BuildId) ./src/auth
+            displayName: Build Auth
+
+          - script: docker build -t warlus-catalogo:$(Build.BuildId) ./src/catalogo
+            displayName: Build Catálogo
+
+          - script: docker build -t warlus-pedidos:$(Build.BuildId) ./src/pedidos
+            displayName: Build Pedidos
+
+          - script: docker build -t warlus-pagos:$(Build.BuildId) ./src/pagos
+            displayName: Build Pagos
+
+          - script: docker images
+            displayName: Verificar imágenes generadas
