@@ -14,172 +14,370 @@ pr:
 pool:
   name: Default
 
-variables:
-  nodeVersion: '22.x'
-
 stages:
 
   - stage: Validate
-    displayName: Validación de microservicios
+    displayName: Validacion Python y pruebas
 
     jobs:
       - job: ValidateServices
-        displayName: Validar Node.js, dependencias y pruebas
+        displayName: Validar FastAPI y ejecutar pytest
 
         steps:
 
-          - task: UseNode@1
-            displayName: Instalar Node.js 22
-            inputs:
-              version: $(nodeVersion)
+          - checkout: self
+            clean: true
 
-          - script: |
-              node --version
-              npm --version
-            displayName: Verificar versiones
+          - powershell: |
+              $python = "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe"
 
-          - script: npm ci
+              if (-not (Test-Path $python)) {
+                  throw "Python 3.12 no esta instalado en el agente."
+              }
+
+              & $python --version
+
+              $venv = "$(Agent.TempDirectory)\warlus-pipeline-venv"
+
+              if (Test-Path $venv) {
+                  Remove-Item $venv -Recurse -Force
+              }
+
+              & $python -m venv $venv
+
+              if ($LASTEXITCODE -ne 0) {
+                  throw "No se pudo crear el entorno virtual."
+              }
+
+              $pipelinePython = "$venv\Scripts\python.exe"
+
+              & $pipelinePython -m pip install --upgrade pip
+
+              if ($LASTEXITCODE -ne 0) {
+                  throw "No se pudo preparar pip."
+              }
+
+              Write-Host "##vso[task.setvariable variable=PipelinePython]$pipelinePython"
+
+            displayName: Preparar Python 3.12
+
+          - powershell: |
+              & "$(PipelinePython)" -m pip install -r requirements-test.txt
+
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Fallo la instalacion de dependencias Auth."
+              }
+
+              & "$(PipelinePython)" -m py_compile main.py
+
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Fallo la validacion de sintaxis Auth."
+              }
+
+              & "$(PipelinePython)" -m pytest test_main.py -v --junitxml=test-results.xml
+
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Fallaron las pruebas Auth."
+              }
+
             workingDirectory: src/auth
-            displayName: Instalar dependencias Auth
+            displayName: Validar y probar Auth
 
-          - script: node --check index.js
-            workingDirectory: src/auth
-            displayName: Validar sintaxis Auth
+          - powershell: |
+              & "$(PipelinePython)" -m pip install -r requirements-test.txt
 
-          - script: node --test --test-reporter=junit > test-results.xml
-            workingDirectory: src/auth
-            displayName: Ejecutar pruebas Auth
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Fallo la instalacion de dependencias Catalogo."
+              }
 
-          - script: npm ci
+              & "$(PipelinePython)" -m py_compile main.py
+
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Fallo la validacion de sintaxis Catalogo."
+              }
+
+              & "$(PipelinePython)" -m pytest test_main.py -v --junitxml=test-results.xml
+
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Fallaron las pruebas Catalogo."
+              }
+
             workingDirectory: src/catalogo
-            displayName: Instalar dependencias Catálogo
+            displayName: Validar y probar Catalogo
 
-          - script: node --check index.js
-            workingDirectory: src/catalogo
-            displayName: Validar sintaxis Catálogo
+          - powershell: |
+              & "$(PipelinePython)" -m pip install -r requirements-test.txt
 
-          - script: node --test --test-reporter=junit > test-results.xml
-            workingDirectory: src/catalogo
-            displayName: Ejecutar pruebas Catálogo
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Fallo la instalacion de dependencias Pedidos."
+              }
 
-          - script: npm ci
+              & "$(PipelinePython)" -m py_compile main.py
+
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Fallo la validacion de sintaxis Pedidos."
+              }
+
+              & "$(PipelinePython)" -m pytest test_main.py -v --junitxml=test-results.xml
+
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Fallaron las pruebas Pedidos."
+              }
+
             workingDirectory: src/pedidos
-            displayName: Instalar dependencias Pedidos
+            displayName: Validar y probar Pedidos
 
-          - script: node --check index.js
-            workingDirectory: src/pedidos
-            displayName: Validar sintaxis Pedidos
+          - powershell: |
+              & "$(PipelinePython)" -m pip install -r requirements-test.txt
 
-          - script: node --test --test-reporter=junit > test-results.xml
-            workingDirectory: src/pedidos
-            displayName: Ejecutar pruebas Pedidos
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Fallo la instalacion de dependencias Pagos."
+              }
 
-          - script: npm ci
+              & "$(PipelinePython)" -m py_compile main.py
+
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Fallo la validacion de sintaxis Pagos."
+              }
+
+              & "$(PipelinePython)" -m pytest test_main.py -v --junitxml=test-results.xml
+
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Fallaron las pruebas Pagos."
+              }
+
             workingDirectory: src/pagos
-            displayName: Instalar dependencias Pagos
-
-          - script: node --check index.js
-            workingDirectory: src/pagos
-            displayName: Validar sintaxis Pagos
-
-          - script: node --test --test-reporter=junit > test-results.xml
-            workingDirectory: src/pagos
-            displayName: Ejecutar pruebas Pagos
+            displayName: Validar y probar Pagos
 
           - task: PublishTestResults@2
-            displayName: Publicar resultados de pruebas
+            displayName: Publicar resultados pytest
             condition: succeededOrFailed()
+
             inputs:
               testResultsFormat: JUnit
               testResultsFiles: 'src/**/test-results.xml'
               searchFolder: '$(System.DefaultWorkingDirectory)'
               mergeTestResults: true
-              testRunTitle: 'Pruebas automáticas Warlus CRM'
+              testRunTitle: 'Pruebas FastAPI Warlus CRM'
               failTaskOnFailedTests: true
               failTaskOnMissingResultsFile: true
 
+
   - stage: DockerBuild
-    displayName: Construcción de imágenes Docker
+    displayName: Construccion de imagenes FastAPI
     dependsOn: Validate
     condition: succeeded()
 
     jobs:
       - job: BuildImages
-        displayName: Construir microservicios
+        displayName: Construir microservicios Python
 
         steps:
 
-          - script: docker --version
+          - powershell: |
+              docker --version
+
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Docker no esta disponible."
+              }
+
             displayName: Verificar Docker
 
-          - script: docker build -t warlus-auth:$(Build.BuildId) ./src/auth
-            displayName: Build Auth
+          - powershell: |
+              docker build -t warlus-auth:$(Build.BuildId) ./src/auth
 
-          - script: docker build -t warlus-catalogo:$(Build.BuildId) ./src/catalogo
-            displayName: Build Catálogo
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Fallo Build Auth."
+              }
 
-          - script: docker build -t warlus-pedidos:$(Build.BuildId) ./src/pedidos
-            displayName: Build Pedidos
+            displayName: Build Auth FastAPI
 
-          - script: docker build -t warlus-pagos:$(Build.BuildId) ./src/pagos
-            displayName: Build Pagos
+          - powershell: |
+              docker build -t warlus-catalogo:$(Build.BuildId) ./src/catalogo
 
-          - script: docker images
-            displayName: Verificar imágenes generadas
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Fallo Build Catalogo."
+              }
+
+            displayName: Build Catalogo FastAPI
+
+          - powershell: |
+              docker build -t warlus-pedidos:$(Build.BuildId) ./src/pedidos
+
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Fallo Build Pedidos."
+              }
+
+            displayName: Build Pedidos FastAPI
+
+          - powershell: |
+              docker build -t warlus-pagos:$(Build.BuildId) ./src/pagos
+
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Fallo Build Pagos."
+              }
+
+            displayName: Build Pagos FastAPI
+
+          - powershell: |
+              docker images
+
+            displayName: Verificar imagenes generadas
+
 
   - stage: Deploy
-    displayName: Despliegue continuo de Warlus CRM
+    displayName: Despliegue continuo FastAPI
     dependsOn: DockerBuild
     condition: succeeded()
 
     jobs:
       - job: DeployCompose
-        displayName: Desplegar servicios con Docker Compose
+        displayName: Desplegar Warlus CRM
 
         steps:
 
           - powershell: |
-              docker compose -p warlus-crm --env-file .env.example down --remove-orphans
-              docker compose -p warlus-crm --env-file .env.example up -d --build
-            displayName: Desplegar servicios
+              docker compose `
+                  -p warlus-crm `
+                  --env-file .env.example `
+                  config `
+                  --quiet
+
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Docker Compose contiene errores."
+              }
+
+            displayName: Validar Docker Compose
 
           - powershell: |
-              Start-Sleep -Seconds 15
-              docker compose -p warlus-crm --env-file .env.example ps
-            displayName: Verificar contenedores
+              docker compose `
+                  -p warlus-crm `
+                  --env-file .env.example `
+                  down `
+                  --remove-orphans
+
+              docker compose `
+                  -p warlus-crm `
+                  --env-file .env.example `
+                  up `
+                  -d `
+                  --build
+
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Fallo el despliegue Docker Compose."
+              }
+
+            displayName: Desplegar servicios FastAPI
+
+          - powershell: |
+              Start-Sleep -Seconds 12
+
+              $postgres = docker compose `
+                  -p warlus-crm `
+                  --env-file .env.example `
+                  exec `
+                  -T `
+                  postgres `
+                  pg_isready `
+                  -U warlus_user `
+                  -d warlus
+
+              if ($LASTEXITCODE -ne 0) {
+                  throw "PostgreSQL no esta disponible."
+              }
+
+              Write-Host $postgres
+
+              $redis = docker compose `
+                  -p warlus-crm `
+                  --env-file .env.example `
+                  exec `
+                  -T `
+                  redis `
+                  redis-cli `
+                  ping
+
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Redis no esta disponible."
+              }
+
+              if ($redis -notmatch "PONG") {
+                  throw "Redis no respondio PONG."
+              }
+
+              Write-Host "Redis: $redis"
+
+            displayName: Verificar PostgreSQL y Redis
 
           - powershell: |
               $services = @(
                   @{
                       Name = "Auth"
+                      Expected = "auth"
                       Url = "http://localhost:8081/health"
                   },
                   @{
                       Name = "Catalogo"
+                      Expected = "catalogo"
                       Url = "http://localhost:8082/health"
                   },
                   @{
                       Name = "Pedidos"
+                      Expected = "pedidos"
                       Url = "http://localhost:8083/health"
                   },
                   @{
                       Name = "Pagos"
+                      Expected = "pagos"
                       Url = "http://localhost:8084/health"
                   }
               )
 
               foreach ($service in $services) {
 
-                  Write-Host "Verificando $($service.Name)..."
+                  $response = $null
+                  $ready = $false
 
-                  $response = Invoke-RestMethod `
-                      -Uri $service.Url `
-                      -Method Get
+                  for ($i = 1; $i -le 15; $i++) {
+
+                      try {
+
+                          $response = Invoke-RestMethod `
+                              -Uri $service.Url `
+                              -Method GET `
+                              -TimeoutSec 5
+
+                          $ready = $true
+                          break
+                      }
+                      catch {
+
+                          Write-Host "Esperando $($service.Name)... intento $i"
+                          Start-Sleep -Seconds 2
+                      }
+                  }
+
+                  if (-not $ready) {
+                      throw "$($service.Name) no respondio."
+                  }
+
+                  if ($response.service -ne $service.Expected) {
+                      throw "$($service.Name) devolvio un service incorrecto."
+                  }
 
                   if ($response.status -ne "OK") {
-                      throw "El servicio $($service.Name) no respondió correctamente."
+                      throw "$($service.Name) no devolvio status OK."
                   }
 
                   Write-Host "$($service.Name): OK"
               }
-            displayName: Verificar endpoints de salud
+
+            displayName: Verificar endpoints FastAPI
+
+          - powershell: |
+              docker compose `
+                  -p warlus-crm `
+                  --env-file .env.example `
+                  ps
+
+            displayName: Estado final de contenedores

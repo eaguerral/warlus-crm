@@ -16,4 +16,13 @@ build/
 .DS_Store
 Thumbs.db
 
-coverage/
+coverage/# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Resultados de pruebas
+**/test-results.xml

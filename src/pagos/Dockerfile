@@ -1,16 +1,16 @@
+FROM python:3.12-slim
 
-FROM node:22-alpine
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY requirements.txt .
 
-RUN npm ci --omit=dev
+RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
-COPY index.js ./
-
-ENV PAGOS_PORT=8084
+COPY main.py .
 
 EXPOSE 8084
 
-CMD ["npm", "start"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8084"]
