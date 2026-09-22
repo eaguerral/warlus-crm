@@ -385,142 +385,142 @@ stages:
 # DESPLIEGUE CLOUD - AZURE APP SERVICE
 # ============================================================
 
-- stage: DeployAzureAuth
-  displayName: 'Despliegue Auth en Azure App Service'
-  dependsOn:
-    - Validate
-    - DockerBuild
-    - Deploy
-  condition: succeeded()
+  - stage: DeployAzureAuth
+    displayName: 'Despliegue Auth en Azure App Service'
+    dependsOn:
+      - Validate
+      - DockerBuild
+      - Deploy
+    condition: succeeded()
 
-  jobs:
-    - job: DeployAuthAzure
-      displayName: 'Deploy FastAPI Auth a Azure'
-      pool:
-        name: Default
+    jobs:
+      - job: DeployAuthAzure
+        displayName: 'Deploy FastAPI Auth a Azure'
+        pool:
+          name: Default
 
-      steps:
+        steps:
 
-        - checkout: self
+          - checkout: self
 
-        - task: PowerShell@2
-          displayName: 'Preparar paquete Auth'
-          inputs:
-            targetType: inline
-            script: |
-              $ErrorActionPreference = "Stop"
+          - task: PowerShell@2
+            displayName: 'Preparar paquete Auth'
+            inputs:
+              targetType: inline
+              script: |
+                $ErrorActionPreference = "Stop"
 
-              $source = "$(Build.SourcesDirectory)\src\auth"
-              $temp   = "$(Build.ArtifactStagingDirectory)\auth"
-              $zip    = "$(Build.ArtifactStagingDirectory)\warlus-auth.zip"
+                $source = "$(Build.SourcesDirectory)\src\auth"
+                $temp   = "$(Build.ArtifactStagingDirectory)\auth"
+                $zip    = "$(Build.ArtifactStagingDirectory)\warlus-auth.zip"
 
-              if (-not (Test-Path "$source\main.py")) {
-                  throw "No existe src\auth\main.py"
-              }
+                if (-not (Test-Path "$source\main.py")) {
+                    throw "No existe src\auth\main.py"
+                }
 
-              if (-not (Test-Path "$source\requirements.txt")) {
-                  throw "No existe src\auth\requirements.txt"
-              }
+                if (-not (Test-Path "$source\requirements.txt")) {
+                    throw "No existe src\auth\requirements.txt"
+                }
 
-              if (Test-Path $temp) {
-                  Remove-Item $temp -Recurse -Force
-              }
+                if (Test-Path $temp) {
+                    Remove-Item $temp -Recurse -Force
+                }
 
-              if (Test-Path $zip) {
-                  Remove-Item $zip -Force
-              }
+                if (Test-Path $zip) {
+                    Remove-Item $zip -Force
+                }
 
-              New-Item -ItemType Directory -Path $temp -Force | Out-Null
+                New-Item -ItemType Directory -Path $temp -Force | Out-Null
 
-              Copy-Item "$source\main.py" "$temp\main.py"
-              Copy-Item "$source\requirements.txt" "$temp\requirements.txt"
+                Copy-Item "$source\main.py" "$temp\main.py"
+                Copy-Item "$source\requirements.txt" "$temp\requirements.txt"
 
-              Compress-Archive `
-                -Path "$temp\*" `
-                -DestinationPath $zip `
-                -Force
+                Compress-Archive `
+                  -Path "$temp\*" `
+                  -DestinationPath $zip `
+                  -Force
 
-              Write-Host "Paquete generado:"
-              Write-Host $zip
+                Write-Host "Paquete generado:"
+                Write-Host $zip
 
-        - task: AzureCLI@2
-          displayName: 'Desplegar Auth en App Service'
-          inputs:
-            azureSubscription: 'sc-warlus-azure-dev'
-            scriptType: 'ps'
-            scriptLocation: 'inlineScript'
-            inlineScript: |
-              $ErrorActionPreference = "Stop"
+          - task: AzureCLI@2
+            displayName: 'Desplegar Auth en App Service'
+            inputs:
+              azureSubscription: 'sc-warlus-azure-dev'
+              scriptType: 'ps'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                $ErrorActionPreference = "Stop"
 
-              az webapp deploy `
-                --resource-group "rg-warlus-crm-dev" `
-                --name "warlus-auth-dev-eguerral" `
-                --src-path "$(Build.ArtifactStagingDirectory)\warlus-auth.zip" `
-                --type zip `
-                --clean true
+                az webapp deploy `
+                  --resource-group "rg-warlus-crm-dev" `
+                  --name "warlus-auth-dev-eguerral" `
+                  --src-path "$(Build.ArtifactStagingDirectory)\warlus-auth.zip" `
+                  --type zip `
+                  --clean true
 
-        - task: PowerShell@2
-          displayName: 'Validar FastAPI en Azure'
-          inputs:
-            targetType: inline
-            script: |
-              $ErrorActionPreference = "Stop"
+          - task: PowerShell@2
+            displayName: 'Validar FastAPI en Azure'
+            inputs:
+              targetType: inline
+              script: |
+                $ErrorActionPreference = "Stop"
 
-              $baseUrl = "https://warlus-auth-dev-eguerral-akhgbqazerd4dxd3.canadacentral-01.azurewebsites.net"
+                $baseUrl = "https://warlus-auth-dev-eguerral-akhgbqazerd4dxd3.canadacentral-01.azurewebsites.net"
 
-              $ready = $false
+                $ready = $false
 
-              for ($i = 1; $i -le 20; $i++) {
+                for ($i = 1; $i -le 20; $i++) {
 
-                  try {
+                    try {
 
-                      $health = Invoke-RestMethod `
-                        -Uri "$baseUrl/health" `
-                        -Method GET `
-                        -TimeoutSec 10
+                        $health = Invoke-RestMethod `
+                          -Uri "$baseUrl/health" `
+                          -Method GET `
+                          -TimeoutSec 10
 
-                      if (
-                          $health.service -eq "auth" -and
-                          $health.status -eq "OK"
-                      ) {
-                          $ready = $true
-                          break
-                      }
+                        if (
+                            $health.service -eq "auth" -and
+                            $health.status -eq "OK"
+                        ) {
+                            $ready = $true
+                            break
+                        }
 
-                  }
-                  catch {
-                      Write-Host "Intento $i de 20..."
-                      Start-Sleep -Seconds 5
-                  }
-              }
+                    }
+                    catch {
+                        Write-Host "Intento $i de 20..."
+                        Start-Sleep -Seconds 5
+                    }
+                }
 
-              if (-not $ready) {
-                  throw "Auth no respondio correctamente en Azure."
-              }
+                if (-not $ready) {
+                    throw "Auth no respondio correctamente en Azure."
+                }
 
-              Write-Host ""
-              Write-Host "/health OK"
-              Write-Host "service = $($health.service)"
-              Write-Host "status  = $($health.status)"
+                Write-Host ""
+                Write-Host "/health OK"
+                Write-Host "service = $($health.service)"
+                Write-Host "status  = $($health.status)"
 
-              $docs = Invoke-WebRequest `
-                -Uri "$baseUrl/docs" `
-                -UseBasicParsing `
-                -TimeoutSec 10
+                $docs = Invoke-WebRequest `
+                  -Uri "$baseUrl/docs" `
+                  -UseBasicParsing `
+                  -TimeoutSec 10
 
-              if ($docs.StatusCode -ne 200) {
-                  throw "/docs no respondio HTTP 200"
-              }
+                if ($docs.StatusCode -ne 200) {
+                    throw "/docs no respondio HTTP 200"
+                }
 
-              $openapi = Invoke-RestMethod `
-                -Uri "$baseUrl/openapi.json" `
-                -TimeoutSec 10
+                $openapi = Invoke-RestMethod `
+                  -Uri "$baseUrl/openapi.json" `
+                  -TimeoutSec 10
 
-              if (-not $openapi.openapi) {
-                  throw "/openapi.json no respondio correctamente"
-              }
+                if (-not $openapi.openapi) {
+                    throw "/openapi.json no respondio correctamente"
+                }
 
-              Write-Host "/docs OK"
-              Write-Host "/openapi.json OK"
+                Write-Host "/docs OK"
+                Write-Host "/openapi.json OK"
 
 
