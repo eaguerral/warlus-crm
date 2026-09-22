@@ -1,5 +1,9 @@
 services:
 
+  # ============================================================
+  # POSTGRESQL
+  # ============================================================
+
   postgres:
     image: postgres:18-alpine
     container_name: warlus-postgres
@@ -16,6 +20,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql
 
+    networks:
+      - warlus-network
+
     healthcheck:
       test:
         [
@@ -25,7 +32,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+      start_period: 10s
 
+
+  # ============================================================
+  # REDIS
+  # ============================================================
 
   redis:
     image: redis:8-alpine
@@ -38,6 +50,9 @@ services:
     volumes:
       - redis_data:/data
 
+    networks:
+      - warlus-network
+
     healthcheck:
       test:
         [
@@ -48,7 +63,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+      start_period: 5s
 
+
+  # ============================================================
+  # MICROSERVICIO AUTH
+  # ============================================================
 
   auth:
     build:
@@ -67,8 +87,12 @@ services:
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
+
       REDIS_HOST: ${REDIS_HOST}
       REDIS_PORT: ${REDIS_PORT}
+
+    networks:
+      - warlus-network
 
     depends_on:
       postgres:
@@ -76,6 +100,23 @@ services:
       redis:
         condition: service_healthy
 
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8081/health', timeout=3)"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+
+  # ============================================================
+  # MICROSERVICIO CATALOGO
+  # ============================================================
 
   catalogo:
     build:
@@ -94,8 +135,12 @@ services:
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
+
       REDIS_HOST: ${REDIS_HOST}
       REDIS_PORT: ${REDIS_PORT}
+
+    networks:
+      - warlus-network
 
     depends_on:
       postgres:
@@ -103,6 +148,23 @@ services:
       redis:
         condition: service_healthy
 
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8082/health', timeout=3)"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+
+  # ============================================================
+  # MICROSERVICIO PEDIDOS
+  # ============================================================
 
   pedidos:
     build:
@@ -121,8 +183,12 @@ services:
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
+
       REDIS_HOST: ${REDIS_HOST}
       REDIS_PORT: ${REDIS_PORT}
+
+    networks:
+      - warlus-network
 
     depends_on:
       postgres:
@@ -130,6 +196,23 @@ services:
       redis:
         condition: service_healthy
 
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8083/health', timeout=3)"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+
+  # ============================================================
+  # MICROSERVICIO PAGOS
+  # ============================================================
 
   pagos:
     build:
@@ -148,8 +231,12 @@ services:
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
+
       REDIS_HOST: ${REDIS_HOST}
       REDIS_PORT: ${REDIS_PORT}
+
+    networks:
+      - warlus-network
 
     depends_on:
       postgres:
@@ -157,7 +244,39 @@ services:
       redis:
         condition: service_healthy
 
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8084/health', timeout=3)"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+
+# ============================================================
+# VOLUMENES
+# ============================================================
 
 volumes:
+
   postgres_data:
+    name: warlus-postgres-data
+
   redis_data:
+    name: warlus-redis-data
+
+
+# ============================================================
+# RED INTERNA
+# ============================================================
+
+networks:
+
+  warlus-network:
+    name: warlus-network
+    driver: bridge
