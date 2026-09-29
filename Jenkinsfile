@@ -64,6 +64,10 @@ pipeline {
                 dir('src/pagos') {
                     bat '..\\..\\.jenkins-venv\\Scripts\\python.exe -m pytest -v test_main.py --html=..\\..\\reports\\pagos.html --self-contained-html'
                 }
+
+                echo 'Ejecutando pruebas funcionales Selenium con Chrome Headless'
+
+                bat '.jenkins-venv\\Scripts\\python.exe -m pytest -v tests\\selenium\\test_auth_selenium.py --html=reports\\selenium-auth.html --self-contained-html'
             }
 
             post {
@@ -102,6 +106,15 @@ pipeline {
                         reportDir: 'reports',
                         reportFiles: 'pagos.html',
                         reportName: 'Pytest - Pagos'
+                    ])
+
+                    publishHTML(target: [
+                        allowMissing: true,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'reports',
+                        reportFiles: 'selenium-auth.html',
+                        reportName: 'Selenium - Auth'
                     ])
                 }
             }
