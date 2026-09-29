@@ -1,4 +1,4 @@
-﻿from fastapi.testclient import TestClient
+from fastapi.testclient import TestClient
 
 from main import app
 
@@ -18,3 +18,10 @@ def test_health_content():
     assert response.status_code == 200
     assert response.json()["service"] == "catalogo"
     assert response.json()["status"] == "OK"
+
+
+def test_root_http_200():
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert response.json()["message"] == "Microservicio de catalogo Warlus CRM"
