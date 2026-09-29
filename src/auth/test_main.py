@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from main import app
+from main import app, root, health
 
 
 client = TestClient(app)
@@ -46,3 +46,19 @@ def test_health_basic_performance():
     average = elapsed / 20
 
     assert average < 1.0
+
+def test_unit_root_function():
+    result = root()
+
+    assert result == {
+        "message": "Microservicio de autenticacion Warlus CRM"
+    }
+
+
+def test_unit_health_function():
+    result = health()
+
+    assert result == {
+        "service": "auth",
+        "status": "OK"
+    }
