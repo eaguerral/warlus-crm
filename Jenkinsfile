@@ -136,66 +136,69 @@ pipeline {
                 powershell -NoProfile -ExecutionPolicy Bypass -Command "Compress-Archive -Path 'deploy-staging\\*' -DestinationPath 'warlus-auth-staging.zip' -Force"
                 '''
 
-                withCredentials([
-                    string(
-                        credentialsId: 'azure-jenkins-client-id',
-                        variable: 'AZ_CLIENT_ID'
-                    ),
-                    string(
-                        credentialsId: 'azure-jenkins-client-secret',
-                        variable: 'AZ_CLIENT_SECRET'
-                    ),
-                    string(
-                        credentialsId: 'azure-jenkins-tenant-id',
-                        variable: 'AZ_TENANT_ID'
-                    ),
-                    string(
-                        credentialsId: 'azure-jenkins-subscription-id',
-                        variable: 'AZ_SUBSCRIPTION_ID'
-                    )
-                ]) {
-                    bat '''
-                    @echo off
+                timeout(time: 5, unit: 'MINUTES') {
+                    withCredentials([
+                        string(
+                            credentialsId: 'azure-jenkins-client-id',
+                            variable: 'AZ_CLIENT_ID'
+                        ),
+                        string(
+                            credentialsId: 'azure-jenkins-client-secret',
+                            variable: 'AZ_CLIENT_SECRET'
+                        ),
+                        string(
+                            credentialsId: 'azure-jenkins-tenant-id',
+                            variable: 'AZ_TENANT_ID'
+                        ),
+                        string(
+                            credentialsId: 'azure-jenkins-subscription-id',
+                            variable: 'AZ_SUBSCRIPTION_ID'
+                        )
+                    ]) {
+                        bat '''
+                        @echo off
 
-                    call "C:\\Program Files\\Microsoft SDKs\\Azure\\CLI2\\wbin\\az.cmd" login ^
-                      --service-principal ^
-                      --username "%AZ_CLIENT_ID%" ^
-                      --password "%AZ_CLIENT_SECRET%" ^
-                      --tenant "%AZ_TENANT_ID%" ^
-                      --output none
+                        set "AZURE_CONFIG_DIR=%WORKSPACE%\\.azure-jenkins-%BUILD_NUMBER%"
 
-                    if errorlevel 1 exit /b 1
+                        if exist "%AZURE_CONFIG_DIR%" (
+                            rmdir /s /q "%AZURE_CONFIG_DIR%"
+                        )
 
-                    call "C:\\Program Files\\Microsoft SDKs\\Azure\\CLI2\\wbin\\az.cmd" account set ^
-                      --subscription "%AZ_SUBSCRIPTION_ID%"
+                        call "C:\\Program Files\\Microsoft SDKs\\Azure\\CLI2\\wbin\\az.cmd" login ^
+                          --service-principal ^
+                          --username "%AZ_CLIENT_ID%" ^
+                          --password "%AZ_CLIENT_SECRET%" ^
+                          --tenant "%AZ_TENANT_ID%" ^
+                          --output none
 
-                    if errorlevel 1 (
-                        call "C:\\Program Files\\Microsoft SDKs\\Azure\\CLI2\\wbin\\az.cmd" logout
-                        exit /b 1
-                    )
+                        if errorlevel 1 exit /b 1
 
-                    call "C:\\Program Files\\Microsoft SDKs\\Azure\\CLI2\\wbin\\az.cmd" webapp deploy ^
-                      --resource-group "rg-warlus-crm-dev" ^
-                      --name "warlus-auth-staging-eguerral" ^
-                      --src-path "warlus-auth-staging.zip" ^
-                      --type zip ^
-                      --clean true ^
-                      --restart true ^
-                      --timeout 900000 ^
-                      --enriched-errors true
+                        call "C:\\Program Files\\Microsoft SDKs\\Azure\\CLI2\\wbin\\az.cmd" webapp deploy ^
+                          --resource-group "rg-warlus-crm-dev" ^
+                          --name "warlus-auth-staging-eguerral" ^
+                          --subscription "%AZ_SUBSCRIPTION_ID%" ^
+                          --src-path "warlus-auth-staging.zip" ^
+                          --type zip ^
+                          --clean true ^
+                          --restart true ^
+                          --track-status false ^
+                          --enriched-errors true ^
+                          --output none
 
-                    set DEPLOY_RESULT=%ERRORLEVEL%
+                        if errorlevel 1 exit /b 1
 
-                    call "C:\\Program Files\\Microsoft SDKs\\Azure\\CLI2\\wbin\\az.cmd" logout >nul 2>&1
+                        if exist "%AZURE_CONFIG_DIR%" (
+                            rmdir /s /q "%AZURE_CONFIG_DIR%"
+                        )
 
-                    if not "%DEPLOY_RESULT%"=="0" exit /b %DEPLOY_RESULT%
-                    '''
+                        echo AZURE DEPLOY SUBMITTED
+                        '''
+                    }
                 }
-
                 echo 'Validando endpoint publico de staging'
 
                 bat '''
-                powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='SilentlyContinue'; $url='https://warlus-auth-staging-eguerral.azurewebsites.net/health'; $ok=$false; for($i=1; $i -le 30; $i++){ try { $r=Invoke-RestMethod -Uri $url -TimeoutSec 10; if($r.service -eq 'auth' -and $r.status -eq 'OK'){ Write-Host 'STAGING HEALTH OK'; Write-Host ('service=' + $r.service); Write-Host ('status=' + $r.status); $ok=$true; break } } catch { Write-Host ('Intento ' + $i + ': staging aun no disponible') }; Start-Sleep -Seconds 10 }; if(-not $ok){ Write-Error 'Staging no respondio correctamente'; exit 1 }"
+                powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='SilentlyContinue'; $url='https://warlus-auth-staging-eguerral.azurewebsites.net/health'; $ok=$false; Start-Sleep -Seconds 20; for($i=1; $i -le 30; $i++){ try { $r=Invoke-RestMethod -Uri $url -TimeoutSec 10; if($r.service -eq 'auth' -and $r.status -eq 'OK'){ Write-Host 'STAGING HEALTH OK'; Write-Host ('service=' + $r.service); Write-Host ('status=' + $r.status); $ok=$true; break } } catch { Write-Host ('Intento ' + $i + ': staging aun no disponible') }; Start-Sleep -Seconds 10 }; if(-not $ok){ Write-Error 'Staging no respondio correctamente'; exit 1 }"
                 '''
             }
         }
