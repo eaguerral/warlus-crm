@@ -9,16 +9,27 @@ DB_PORT = os.getenv("DB_PORT", "5432")
 DB_NAME = os.getenv("DB_NAME", "warlus")
 DB_USER = os.getenv("DB_USER", "warlus_user")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+APP_ENV = os.getenv("APP_ENV", "development").strip().lower()
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
     f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}",
 )
 
+# Azure Database for PostgreSQL requires encrypted connections in production.
+# Local, test and Docker environments keep their current behavior.
+CONNECT_ARGS = (
+    {"sslmode": "require"}
+    if APP_ENV == "production" and DATABASE_URL.startswith("postgresql")
+    else {}
+)
+
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,
+    connect_args=CONNECT_ARGS,
 )
+
 
 SessionLocal = sessionmaker(
     autocommit=False,
