@@ -173,6 +173,12 @@ const SidebarContent = (props) => {
                 <span>Pedidos</span>
               </Link>
             </li>
+            <li>
+              <Link to="/pagos">
+                <i className="bx bx-credit-card"></i>
+                <span>Pagos</span>
+              </Link>
+            </li>
           </ul>
         </div>
       </SimpleBar>

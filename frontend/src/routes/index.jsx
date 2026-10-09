@@ -11,11 +11,13 @@ import ForgetPwd from "../pages/Authentication/ForgetPassword";
 import Dashboard from "../pages/Dashboard/index";
 import Catalogo from "../pages/Catalogo/index";
 import Pedidos from "../pages/Pedidos/index";
+import Pagos from "../pages/Pagos/index";
 
 const authProtectedRoutes = [
   { path: "/dashboard", component: <Dashboard /> },
   { path: "/catalogo", component: <Catalogo /> },
   { path: "/pedidos", component: <Pedidos /> },
+  { path: "/pagos", component: <Pagos /> },
 
   //   // this route should be at the end of all other routes
   //   // eslint-disable-next-line react/display-name
