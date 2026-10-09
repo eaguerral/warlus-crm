@@ -178,7 +178,7 @@ stages:
               foreach ($service in $services) {
 
                   docker build `
-                    -t "warlus-$service:$(Build.BuildId)" `
+                    -t "warlus-$($service):$(Build.BuildId)" `
                     "./src/$service"
 
                   if ($LASTEXITCODE -ne 0) {
