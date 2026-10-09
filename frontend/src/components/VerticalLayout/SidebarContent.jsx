@@ -161,6 +161,12 @@ const SidebarContent = (props) => {
                 <span>{props.t("Dashboard")}</span>
               </Link>
             </li>
+            <li>
+              <Link to="/catalogo">
+                <i className="bx bx-package"></i>
+                <span>Catalogo</span>
+              </Link>
+            </li>
           </ul>
         </div>
       </SimpleBar>

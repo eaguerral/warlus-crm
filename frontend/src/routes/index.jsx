@@ -9,9 +9,11 @@ import ForgetPwd from "../pages/Authentication/ForgetPassword";
 
 // // Dashboard
 import Dashboard from "../pages/Dashboard/index";
+import Catalogo from "../pages/Catalogo/index";
 
 const authProtectedRoutes = [
   { path: "/dashboard", component: <Dashboard /> },
+  { path: "/catalogo", component: <Catalogo /> },
 
   //   // this route should be at the end of all other routes
   //   // eslint-disable-next-line react/display-name
