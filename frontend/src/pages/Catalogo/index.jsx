@@ -203,36 +203,44 @@ const Catalogo = () => {
                       <td>{servicio.precio}</td>
                       <td>{servicio.activo ? "Si" : "No"}</td>
                       <td>
-                        <Button
-                          color="warning"
-                          size="sm"
-                          className="me-1"
-                          id={`btn-editar-${servicio.id}`}
-                          onClick={() => abrirModalEditar(servicio)}
-                        >
-                          <i className="bx bx-pencil" />
-                        </Button>
-                        <UncontrolledTooltip
-                          placement="top"
-                          target={`btn-editar-${servicio.id}`}
-                        >
-                          Editar
-                        </UncontrolledTooltip>
+                        {servicio.editable ? (
+                          <>
+                            <Button
+                              color="warning"
+                              size="sm"
+                              className="me-1"
+                              id={`btn-editar-${servicio.id}`}
+                              onClick={() => abrirModalEditar(servicio)}
+                            >
+                              <i className="bx bx-pencil" />
+                            </Button>
+                            <UncontrolledTooltip
+                              placement="top"
+                              target={`btn-editar-${servicio.id}`}
+                            >
+                              Editar
+                            </UncontrolledTooltip>
 
-                        <Button
-                          color="danger"
-                          size="sm"
-                          id={`btn-borrar-${servicio.id}`}
-                          onClick={() => handleEliminar(servicio)}
-                        >
-                          <i className="bx bx-trash" />
-                        </Button>
-                        <UncontrolledTooltip
-                          placement="top"
-                          target={`btn-borrar-${servicio.id}`}
-                        >
-                          Borrar
-                        </UncontrolledTooltip>
+                            <Button
+                              color="danger"
+                              size="sm"
+                              id={`btn-borrar-${servicio.id}`}
+                              onClick={() => handleEliminar(servicio)}
+                            >
+                              <i className="bx bx-trash" />
+                            </Button>
+                            <UncontrolledTooltip
+                              placement="top"
+                              target={`btn-borrar-${servicio.id}`}
+                            >
+                              Borrar
+                            </UncontrolledTooltip>
+                          </>
+                        ) : (
+                          <span className="text-muted font-size-12">
+                            Global ?? solo lectura
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))

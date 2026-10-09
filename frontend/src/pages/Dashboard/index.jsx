@@ -36,64 +36,22 @@ const COLORS = {
   primary: "#556ee6",
   success: "#34c38f",
   warning: "#f1b44c",
-  danger: "#f46a6a",
   info: "#50a5f1",
-  muted: "#74788d",
 };
 
 
-const normalize = value =>
-  String(value || "")
-    .trim()
-    .toLowerCase();
-
-
-const esPagoCompleto = estado =>
-  [
-    "pagado",
-    "completado",
-    "completo",
-    "aprobado",
-  ].includes(normalize(estado));
-
-
-const esPedidoCompleto = estado =>
-  [
-    "completado",
-    "completo",
-    "finalizado",
-    "pagado",
-  ].includes(normalize(estado));
-
-
-const esPendiente = estado =>
-  [
-    "pendiente",
-    "en proceso",
-    "procesando",
-  ].includes(normalize(estado));
-
-
-const claveMes = fecha => {
-
-  if (!fecha) {
-    return null;
-  }
-
-  const d = new Date(fecha);
-
-  if (Number.isNaN(d.getTime())) {
-    return null;
-  }
-
-  return `${d.getFullYear()}-${String(
-    d.getMonth() + 1
-  ).padStart(2, "0")}`;
-};
+const formatoMoneda = valor =>
+  new Intl.NumberFormat(
+    "es-GT",
+    {
+      style: "currency",
+      currency: "GTQ",
+      minimumFractionDigits: 2,
+    }
+  ).format(Number(valor || 0));
 
 
 const formatoFecha = fecha => {
-
   if (!fecha) {
     return "Sin fecha";
   }
@@ -115,24 +73,22 @@ const formatoFecha = fecha => {
 };
 
 
-const formatoMoneda = valor =>
-  new Intl.NumberFormat(
-    "es-GT",
-    {
-      style: "currency",
-      currency: "GTQ",
-      minimumFractionDigits: 2,
-    }
-  ).format(Number(valor || 0));
-
-
 const colorEstado = estado => {
+  const value =
+    String(estado || "")
+      .toLowerCase();
 
-  if (esPedidoCompleto(estado)) {
+  if (
+    value === "completado" ||
+    value === "cerrado"
+  ) {
     return "success";
   }
 
-  if (esPendiente(estado)) {
+  if (
+    value === "pendiente" ||
+    value === "en proceso"
+  ) {
     return "warning";
   }
 
@@ -159,9 +115,7 @@ const KpiCard = ({
     <Card className="mini-stats-wid">
       <CardBody>
         <div className="d-flex">
-
           <div className="flex-grow-1">
-
             <p className="text-muted fw-medium mb-2">
               {title}
             </p>
@@ -173,7 +127,6 @@ const KpiCard = ({
             <small className="text-muted">
               {helper}
             </small>
-
           </div>
 
           <div
@@ -182,12 +135,9 @@ const KpiCard = ({
             <span
               className={`avatar-title rounded-circle bg-${color}`}
             >
-              <i
-                className={`${icon} font-size-24`}
-              />
+              <i className={`${icon} font-size-24`} />
             </span>
           </div>
-
         </div>
       </CardBody>
     </Card>
@@ -208,32 +158,58 @@ KpiCard.propTypes = {
 
 
 const Dashboard = props => {
+  document.title =
+    "Dashboard | Warlus CRM";
 
-  document.title = "Dashboard | Warlus CRM";
+  const [estados, setEstados] =
+    useState({});
 
-  const [estados, setEstados] = useState({});
+  const [servicios, setServicios] =
+    useState([]);
 
-  const [pedidos, setPedidos] = useState([]);
-  const [pagos, setPagos] = useState([]);
-  const [servicios, setServicios] = useState([]);
+  const [misPedidos, setMisPedidos] =
+    useState([]);
 
-  const [cargandoDatos, setCargandoDatos] =
+  const [
+    resumenPedidos,
+    setResumenPedidos,
+  ] = useState({
+    total: 0,
+    completados: 0,
+    pendientes: 0,
+    otros: 0,
+    por_servicio: [],
+    meses_disponibles: [],
+  });
+
+  const [
+    resumenPagos,
+    setResumenPagos,
+  ] = useState({
+    total: 0,
+    completados: 0,
+    pendientes: 0,
+    monto_completado: "0",
+    por_servicio: [],
+  });
+
+  const [cargando, setCargando] =
     useState(true);
 
-  const [errorDatos, setErrorDatos] =
+  const [error, setError] =
     useState(null);
 
   const [filtroMes, setFiltroMes] =
     useState("todos");
 
-  const [filtroServicio, setFiltroServicio] =
-    useState("todos");
+  const [
+    filtroServicio,
+    setFiltroServicio,
+  ] = useState("todos");
 
 
   const verificar = useCallback(() => {
-
     SERVICIOS.forEach(servicio => {
-
       setEstados(prev => ({
         ...prev,
         [servicio]: "cargando",
@@ -253,285 +229,220 @@ const Dashboard = props => {
           }))
         );
     });
-
   }, []);
 
 
-  const cargarDatos = useCallback((mostrarCarga = true) => {
+  const queryString = useMemo(() => {
+    const params =
+      new URLSearchParams();
 
-    if (mostrarCarga) {
-      setCargandoDatos(true);
+    if (filtroMes !== "todos") {
+      params.set(
+        "mes",
+        filtroMes
+      );
     }
 
-    setErrorDatos(null);
+    if (
+      filtroServicio !== "todos"
+    ) {
+      params.set(
+        "servicio_id",
+        filtroServicio
+      );
+    }
 
-    Promise.all([
-      apiFetch("pedidos", "/pedidos"),
-      apiFetch("pagos", "/pagos"),
-      apiFetch("catalogo", "/servicios"),
-    ])
-      .then(
-        ([
-          pedidosData,
-          pagosData,
-          serviciosData,
-        ]) => {
+    const value = params.toString();
 
-          setPedidos(
-            Array.isArray(pedidosData)
-              ? pedidosData
-              : []
-          );
+    return value
+      ? `?${value}`
+      : "";
+  }, [
+    filtroMes,
+    filtroServicio,
+  ]);
 
-          setPagos(
-            Array.isArray(pagosData)
-              ? pagosData
-              : []
-          );
 
-          setServicios(
-            Array.isArray(serviciosData)
-              ? serviciosData
-              : []
-          );
-        }
-      )
-      .catch(() =>
-        setErrorDatos(
-          "No fue posible cargar el resumen comercial."
+  const cargarDatos = useCallback(
+    (mostrarCarga = true) => {
+      if (mostrarCarga) {
+        setCargando(true);
+      }
+
+      setError(null);
+
+      Promise.all([
+        apiFetch(
+          "pedidos",
+          `/pedidos/resumen/global${queryString}`
+        ),
+        apiFetch(
+          "pagos",
+          `/pagos/resumen/global${queryString}`
+        ),
+        apiFetch(
+          "catalogo",
+          "/servicios"
+        ),
+        apiFetch(
+          "pedidos",
+          "/pedidos"
+        ),
+      ])
+        .then(
+          ([
+            pedidosResumen,
+            pagosResumen,
+            serviciosData,
+            pedidosMios,
+          ]) => {
+            setResumenPedidos(
+              pedidosResumen
+            );
+
+            setResumenPagos(
+              pagosResumen
+            );
+
+            setServicios(
+              Array.isArray(
+                serviciosData
+              )
+                ? serviciosData
+                : []
+            );
+
+            setMisPedidos(
+              Array.isArray(
+                pedidosMios
+              )
+                ? pedidosMios
+                : []
+            );
+          }
         )
-      )
-      .finally(() => {
-        if (mostrarCarga) {
-          setCargandoDatos(false);
-        }
-      });
-
-  }, []);
+        .catch(err =>
+          setError(
+            err?.message ||
+            "No fue posible cargar el dashboard."
+          )
+        )
+        .finally(() => {
+          if (mostrarCarga) {
+            setCargando(false);
+          }
+        });
+    },
+    [queryString]
+  );
 
 
   useEffect(() => {
-
     verificar();
     cargarDatos();
 
-    const intervalo = window.setInterval(() => {
-
-      verificar();
-
-      // Refresco silencioso:
-      // actualiza KPI, tablas y graficas
-      // sin mostrar nuevamente "Cargando..."
-      cargarDatos(false);
-
-    }, 30000);
+    const intervalo =
+      window.setInterval(() => {
+        verificar();
+        cargarDatos(false);
+      }, 30000);
 
     return () => {
-      window.clearInterval(intervalo);
+      window.clearInterval(
+        intervalo
+      );
     };
-
   }, [
     verificar,
     cargarDatos,
   ]);
 
 
-  const serviciosPorId = useMemo(
-    () =>
-      new Map(
-        servicios.map(servicio => [
-          String(servicio.id),
-          servicio.nombre,
-        ])
-      ),
-    [servicios]
-  );
-
-
-  const pedidosPorId = useMemo(
-    () =>
-      new Map(
-        pedidos.map(pedido => [
-          String(pedido.id),
-          pedido,
-        ])
-      ),
-    [pedidos]
-  );
-
-
-  const meses = useMemo(() => {
-
-    const valores = new Set();
-
-    [
-      ...pedidos.map(p => p.created_at),
-      ...pagos.map(p => p.created_at),
-    ].forEach(fecha => {
-
-      const key = claveMes(fecha);
-
-      if (key) {
-        valores.add(key);
-      }
-    });
-
-    return Array.from(valores)
-      .sort()
-      .reverse()
-      .map(key => {
-
-        const [anio, mes] =
-          key.split("-").map(Number);
-
-        const fecha =
-          new Date(anio, mes - 1, 1);
-
-        const label =
-          new Intl.DateTimeFormat(
-            "es-GT",
-            {
-              month: "long",
-              year: "numeric",
-            }
-          ).format(fecha);
-
-        return {
-          value: key,
-          label:
-            label.charAt(0).toUpperCase() +
-            label.slice(1),
-        };
-      });
-
-  }, [
-    pedidos,
-    pagos,
-  ]);
-
-
-  const pedidosFiltrados = useMemo(
-    () =>
-      pedidos.filter(pedido => {
-
-        if (
-          filtroServicio !== "todos" &&
-          String(pedido.servicio_id) !==
-            filtroServicio
-        ) {
-          return false;
-        }
-
-        if (
-          filtroMes !== "todos" &&
-          claveMes(pedido.created_at) !==
-            filtroMes
-        ) {
-          return false;
-        }
-
-        return true;
-      }),
-    [
-      pedidos,
-      filtroMes,
-      filtroServicio,
-    ]
-  );
-
-
-  const pagosFiltrados = useMemo(
-    () =>
-      pagos.filter(pago => {
-
-        const pedido =
-          pedidosPorId.get(
-            String(pago.pedido_id)
-          );
-
-        if (
-          filtroServicio !== "todos"
-        ) {
-
-          if (
-            !pedido ||
-            String(pedido.servicio_id) !==
-              filtroServicio
-          ) {
-            return false;
-          }
-        }
-
-        if (
-          filtroMes !== "todos" &&
-          claveMes(pago.created_at) !==
-            filtroMes
-        ) {
-          return false;
-        }
-
-        return true;
-      }),
-    [
-      pagos,
-      pedidosPorId,
-      filtroMes,
-      filtroServicio,
-    ]
-  );
-
-
-  const totalPedidos =
-    pedidosFiltrados.length;
-
-
-  const pagosCompletos =
-    pagosFiltrados.filter(pago =>
-      esPagoCompleto(pago.estado)
-    ).length;
-
-
-  const pedidosPendientes =
-    pedidosFiltrados.filter(pedido =>
-      esPendiente(pedido.estado)
-    ).length;
-
-
-  const ingresoHistorico =
-    pagos
-      .filter(pago =>
-        esPagoCompleto(pago.estado)
-      )
-      .reduce(
-        (total, pago) =>
-          total + Number(pago.monto || 0),
-        0
-      );
-
-
-  const pedidosCompletos =
-    pedidosFiltrados.filter(pedido =>
-      esPedidoCompleto(pedido.estado)
-    ).length;
-
-
-  const otrosPedidos =
-    Math.max(
-      0,
-      totalPedidos -
-        pedidosCompletos -
-        pedidosPendientes
+  const serviciosPorId =
+    useMemo(
+      () =>
+        new Map(
+          servicios.map(
+            servicio => [
+              String(servicio.id),
+              servicio.nombre,
+            ]
+          )
+        ),
+      [servicios]
     );
 
 
-  const estadoSeries = [
-    pedidosCompletos,
-    pedidosPendientes,
-    otrosPedidos,
+  const actividadReciente =
+    useMemo(() => {
+      return [...misPedidos]
+        .filter(pedido => {
+          if (
+            filtroServicio !==
+              "todos" &&
+            String(
+              pedido.servicio_id
+            ) !== filtroServicio
+          ) {
+            return false;
+          }
+
+          if (
+            filtroMes !== "todos"
+          ) {
+            const fecha =
+              pedido.created_at
+                ? new Date(
+                    pedido.created_at
+                  )
+                : null;
+
+            if (
+              !fecha ||
+              Number.isNaN(
+                fecha.getTime()
+              )
+            ) {
+              return false;
+            }
+
+            const key =
+              `${fecha.getFullYear()}-${String(
+                fecha.getMonth() + 1
+              ).padStart(2, "0")}`;
+
+            if (key !== filtroMes) {
+              return false;
+            }
+          }
+
+          return true;
+        })
+        .slice(0, 6);
+    }, [
+      misPedidos,
+      filtroMes,
+      filtroServicio,
+    ]);
+
+
+  const donutSeries = [
+    Number(
+      resumenPedidos.completados ||
+      0
+    ),
+    Number(
+      resumenPedidos.pendientes ||
+      0
+    ),
+    Number(
+      resumenPedidos.otros ||
+      0
+    ),
   ];
 
 
-  const estadoOptions = {
+  const donutOptions = {
     chart: {
       type: "donut",
       toolbar: {
@@ -559,102 +470,37 @@ const Dashboard = props => {
       width: 0,
     },
 
-    dataLabels: {
-      enabled: true,
-    },
-
     plotOptions: {
       pie: {
         donut: {
           size: "70%",
-
           labels: {
             show: true,
-
             total: {
               show: true,
               label: "Pedidos",
               formatter: () =>
-                String(totalPedidos),
+                String(
+                  resumenPedidos.total ||
+                  0
+                ),
             },
           },
         },
       },
     },
-
-    noData: {
-      text: "Sin datos",
-    },
   };
 
 
-  const ingresoServicio = useMemo(() => {
-
-    const acumulado = new Map();
-
-    pagosFiltrados
-      .filter(pago =>
-        esPagoCompleto(pago.estado)
-      )
-      .forEach(pago => {
-
-        const pedido =
-          pedidosPorId.get(
-            String(pago.pedido_id)
-          );
-
-        if (!pedido) {
-          return;
-        }
-
-        const servicioId =
-          String(pedido.servicio_id);
-
-        const nombre =
-          serviciosPorId.get(servicioId) ||
-          `Servicio #${servicioId}`;
-
-        acumulado.set(
-          nombre,
-          (
-            acumulado.get(nombre) || 0
-          ) + Number(pago.monto || 0)
-        );
-      });
-
-    return Array.from(
-      acumulado.entries()
+  const ingresoItems =
+    Array.isArray(
+      resumenPagos.por_servicio
     )
-      .sort(
-        (a, b) =>
-          b[1] - a[1]
-      );
-
-  }, [
-    pagosFiltrados,
-    pedidosPorId,
-    serviciosPorId,
-  ]);
+      ? resumenPagos.por_servicio
+      : [];
 
 
-  const ingresoCategorias =
-    ingresoServicio.length
-      ? ingresoServicio.map(
-          item => item[0]
-        )
-      : ["Sin datos"];
-
-
-  const ingresoValores =
-    ingresoServicio.length
-      ? ingresoServicio.map(
-          item => item[1]
-        )
-      : [0];
-
-
-  const ingresoOptions = {
-
+  const barOptions = {
     chart: {
       type: "bar",
       toolbar: {
@@ -683,7 +529,12 @@ const Dashboard = props => {
 
     xaxis: {
       categories:
-        ingresoCategorias,
+        ingresoItems.length
+          ? ingresoItems.map(
+              item =>
+                item.servicio
+            )
+          : ["Sin datos"],
 
       labels: {
         rotate: -20,
@@ -693,7 +544,9 @@ const Dashboard = props => {
     yaxis: {
       labels: {
         formatter: value =>
-          `Q ${Number(value).toLocaleString(
+          `Q ${Number(
+            value
+          ).toLocaleString(
             "es-GT"
           )}`,
       },
@@ -705,37 +558,34 @@ const Dashboard = props => {
           formatoMoneda(value),
       },
     },
-
-    noData: {
-      text: "Sin datos",
-    },
   };
 
 
-  const ingresoSeries = [
+  const barSeries = [
     {
       name: "Ingresos",
-      data: ingresoValores,
+      data:
+        ingresoItems.length
+          ? ingresoItems.map(
+              item =>
+                Number(
+                  item.monto ||
+                  0
+                )
+            )
+          : [0],
     },
   ];
 
 
-  const actividadReciente =
-    useMemo(
-      () =>
-        [...pedidosFiltrados]
-          .sort(
-            (a, b) =>
-              new Date(
-                b.created_at || 0
-              ) -
-              new Date(
-                a.created_at || 0
-              )
-          )
-          .slice(0, 6),
-      [pedidosFiltrados]
-    );
+  const meses =
+    Array.isArray(
+      resumenPedidos
+        .meses_disponibles
+    )
+      ? resumenPedidos
+          .meses_disponibles
+      : [];
 
 
   const actualizarTodo = () => {
@@ -746,14 +596,16 @@ const Dashboard = props => {
 
   return (
     <React.Fragment>
-
       <div className="page-content">
-
         <Container fluid>
 
           <Breadcrumbs
-            title={props.t("Dashboards")}
-            breadcrumbItem={props.t("Dashboard")}
+            title={props.t(
+              "Dashboards"
+            )}
+            breadcrumbItem={props.t(
+              "Dashboard"
+            )}
           />
 
 
@@ -761,24 +613,33 @@ const Dashboard = props => {
 
             <KpiCard
               title="Pedidos registrados"
-              value={totalPedidos}
-              helper="Segun los filtros actuales"
+              value={
+                resumenPedidos.total ||
+                0
+              }
+              helper="Total general de todo el CRM"
               icon="bx bx-cart"
               color="primary"
             />
 
             <KpiCard
               title="Pagos completados"
-              value={pagosCompletos}
-              helper="Transacciones finalizadas"
+              value={
+                resumenPagos.completados ||
+                0
+              }
+              helper="Total general de todo el CRM"
               icon="bx bx-check-circle"
               color="success"
             />
 
             <KpiCard
               title="Pendientes"
-              value={pedidosPendientes}
-              helper="Pedidos por completar"
+              value={
+                resumenPedidos.pendientes ||
+                0
+              }
+              helper="Pendientes y en proceso globales"
               icon="bx bx-time-five"
               color="warning"
             />
@@ -786,9 +647,10 @@ const Dashboard = props => {
             <KpiCard
               title="Ingresos historicos"
               value={formatoMoneda(
-                ingresoHistorico
+                resumenPagos
+                  .monto_completado
               )}
-              helper="Acumulado de pagos completados"
+              helper="Ingresos completados de todo el CRM"
               icon="bx bx-wallet"
               color="info"
             />
@@ -797,24 +659,30 @@ const Dashboard = props => {
 
 
           <Card>
-
             <CardBody>
 
               <Row className="align-items-end">
 
-                <Col lg={6} className="mb-3 mb-lg-0">
+                <Col
+                  lg={6}
+                  className="mb-3 mb-lg-0"
+                >
 
                   <h4 className="card-title mb-1">
-                    Resumen comercial
+                    Resumen comercial general
                   </h4>
 
                   <p className="text-muted mb-0">
-                    Consulta pedidos e ingresos sin perder
-                    la vista general del negocio.
+                    Las graficas representan todos
+                    los registros trabajados en el
+                    CRM de forma agregada, sin
+                    exponer datos personales de
+                    otros usuarios.
 
                     <span className="d-block text-success mt-1">
                       <i className="bx bx-refresh me-1" />
-                      Actualizacion automatica cada 30 segundos
+                      Actualizacion automatica
+                      cada 30 segundos
                     </span>
                   </p>
 
@@ -843,10 +711,10 @@ const Dashboard = props => {
 
                     {meses.map(mes => (
                       <option
-                        key={mes.value}
-                        value={mes.value}
+                        key={mes}
+                        value={mes}
                       >
-                        {mes.label}
+                        {mes}
                       </option>
                     ))}
 
@@ -863,7 +731,9 @@ const Dashboard = props => {
 
                   <Input
                     type="select"
-                    value={filtroServicio}
+                    value={
+                      filtroServicio
+                    }
                     onChange={e =>
                       setFiltroServicio(
                         e.target.value
@@ -875,16 +745,22 @@ const Dashboard = props => {
                       Todos
                     </option>
 
-                    {servicios.map(servicio => (
-                      <option
-                        key={servicio.id}
-                        value={String(
-                          servicio.id
-                        )}
-                      >
-                        {servicio.nombre}
-                      </option>
-                    ))}
+                    {servicios.map(
+                      servicio => (
+                        <option
+                          key={
+                            servicio.id
+                          }
+                          value={String(
+                            servicio.id
+                          )}
+                        >
+                          {
+                            servicio.nombre
+                          }
+                        </option>
+                      )
+                    )}
 
                   </Input>
 
@@ -900,7 +776,9 @@ const Dashboard = props => {
                   <Button
                     color="primary"
                     className="w-100"
-                    onClick={actualizarTodo}
+                    onClick={
+                      actualizarTodo
+                    }
                   >
                     <i className="bx bx-refresh me-1" />
                     Actualizar
@@ -911,123 +789,103 @@ const Dashboard = props => {
               </Row>
 
             </CardBody>
-
           </Card>
 
 
-          {errorDatos ? (
-
+          {error ? (
             <Card>
               <CardBody>
                 <p className="text-danger mb-0">
-                  {errorDatos}
+                  {error}
                 </p>
               </CardBody>
             </Card>
-
           ) : null}
 
 
           <Row>
 
             <Col xl={5}>
-
               <Card>
-
                 <CardBody>
 
                   <h4 className="card-title mb-1">
-                    Estado de pedidos
+                    Estado global de pedidos
                   </h4>
 
                   <p className="text-muted mb-3">
-                    Distribucion segun los filtros seleccionados.
+                    Todos los pedidos del CRM,
+                    agrupados por estado.
                   </p>
 
-                  {cargandoDatos ? (
-
+                  {cargando ? (
                     <div className="text-center py-5 text-muted">
                       Cargando...
                     </div>
-
                   ) : (
-
                     <ReactApexChart
-                      options={estadoOptions}
-                      series={estadoSeries}
+                      options={
+                        donutOptions
+                      }
+                      series={
+                        donutSeries
+                      }
                       type="donut"
                       height={310}
                     />
-
                   )}
 
                 </CardBody>
-
               </Card>
-
             </Col>
 
 
             <Col xl={7}>
-
               <Card>
-
                 <CardBody>
 
                   <h4 className="card-title mb-1">
-                    Ingresos por servicio
+                    Ingresos globales por servicio
                   </h4>
 
                   <p className="text-muted mb-3">
-                    Solo considera pagos completados.
+                    Totales del CRM sin mostrar
+                    clientes, correos ni pedidos
+                    de terceros.
                   </p>
 
-                  {cargandoDatos ? (
-
+                  {cargando ? (
                     <div className="text-center py-5 text-muted">
                       Cargando...
                     </div>
-
                   ) : (
-
                     <ReactApexChart
-                      options={ingresoOptions}
-                      series={ingresoSeries}
+                      options={barOptions}
+                      series={barSeries}
                       type="bar"
                       height={310}
                     />
-
                   )}
 
                 </CardBody>
-
               </Card>
-
             </Col>
 
           </Row>
 
 
           <Card>
-
             <CardBody>
 
-              <div className="d-flex align-items-center justify-content-between mb-3">
+              <h4 className="card-title mb-1">
+                Mi actividad reciente
+              </h4>
 
-                <div>
-
-                  <h4 className="card-title mb-1">
-                    Actividad reciente
-                  </h4>
-
-                  <p className="text-muted mb-0">
-                    Ultimos pedidos registrados.
-                  </p>
-
-                </div>
-
-              </div>
-
+              <p className="text-muted mb-3">
+                Esta tabla es privada y solo
+                contiene pedidos de la cuenta
+                autenticada.
+              </p>
 
               <div className="table-responsive">
 
@@ -1036,78 +894,77 @@ const Dashboard = props => {
                 >
 
                   <thead className="table-light">
-
                     <tr>
                       <th>Cliente</th>
                       <th>Servicio</th>
                       <th>Estado</th>
                       <th>Fecha</th>
                     </tr>
-
                   </thead>
 
                   <tbody>
 
-                    {actividadReciente.length === 0 ? (
-
-                      <tr>
-
-                        <td
-                          colSpan={4}
-                          className="text-center text-muted py-4"
-                        >
-                          No hay pedidos para los filtros seleccionados.
-                        </td>
-
-                      </tr>
-
-                    ) : (
-
-                      actividadReciente.map(
-                        pedido => (
-
-                          <tr key={pedido.id}>
-
-                            <td className="fw-medium">
-                              {pedido.cliente}
+                    {
+                      actividadReciente
+                        .length === 0
+                        ? (
+                          <tr>
+                            <td
+                              colSpan={4}
+                              className="text-center text-muted py-4"
+                            >
+                              Aun no tienes pedidos
+                              para estos filtros.
                             </td>
-
-                            <td>
-                              {
-                                serviciosPorId.get(
-                                  String(
-                                    pedido.servicio_id
-                                  )
-                                ) ||
-                                `Servicio #${pedido.servicio_id}`
-                              }
-                            </td>
-
-                            <td>
-
-                              <Badge
-                                color={colorEstado(
-                                  pedido.estado
-                                )}
-                                pill
-                              >
-                                {pedido.estado}
-                              </Badge>
-
-                            </td>
-
-                            <td>
-                              {formatoFecha(
-                                pedido.created_at
-                              )}
-                            </td>
-
                           </tr>
-
                         )
-                      )
+                        : actividadReciente
+                            .map(
+                              pedido => (
+                                <tr
+                                  key={
+                                    pedido.id
+                                  }
+                                >
+                                  <td className="fw-medium">
+                                    {
+                                      pedido.cliente
+                                    }
+                                  </td>
 
-                    )}
+                                  <td>
+                                    {
+                                      serviciosPorId.get(
+                                        String(
+                                          pedido.servicio_id
+                                        )
+                                      ) ||
+                                      `Servicio #${pedido.servicio_id}`
+                                    }
+                                  </td>
+
+                                  <td>
+                                    <Badge
+                                      color={colorEstado(
+                                        pedido.estado
+                                      )}
+                                      pill
+                                    >
+                                      {
+                                        pedido.estado
+                                      }
+                                    </Badge>
+                                  </td>
+
+                                  <td>
+                                    {formatoFecha(
+                                      pedido.created_at
+                                    )}
+                                  </td>
+                                </tr>
+                              )
+                            )
+                    }
 
                   </tbody>
 
@@ -1116,22 +973,20 @@ const Dashboard = props => {
               </div>
 
             </CardBody>
-
           </Card>
 
 
           <div className="d-flex justify-content-between align-items-center mt-2 mb-3">
 
             <div>
-
               <h4 className="card-title mb-1">
                 Estado de los microservicios
               </h4>
 
               <p className="text-muted mb-0">
-                Disponibilidad tecnica del sistema.
+                Disponibilidad tecnica del
+                sistema.
               </p>
-
             </div>
 
             <Button
@@ -1148,77 +1003,70 @@ const Dashboard = props => {
 
           <Row>
 
-            {SERVICIOS.map(servicio => {
+            {SERVICIOS.map(
+              servicio => {
+                const estado =
+                  estados[servicio];
 
-              const estado =
-                estados[servicio];
+                const color =
+                  estado === "OK"
+                    ? "success"
+                    : estado ===
+                        "cargando"
+                      ? "warning"
+                      : "danger";
 
-              const color =
-                estado === "OK"
-                  ? "success"
-                  : estado === "cargando"
-                    ? "warning"
-                    : "danger";
+                return (
+                  <Col
+                    sm={6}
+                    xl={3}
+                    key={servicio}
+                  >
+                    <Card>
+                      <CardBody className="py-3">
 
-              return (
+                        <div className="d-flex align-items-center">
 
-                <Col
-                  sm={6}
-                  xl={3}
-                  key={servicio}
-                >
-
-                  <Card>
-
-                    <CardBody className="py-3">
-
-                      <div className="d-flex align-items-center">
-
-                        <div
-                          className={`avatar-sm rounded-circle bg-${color} me-3`}
-                        >
-
-                          <span
-                            className={`avatar-title rounded-circle bg-${color}`}
+                          <div
+                            className={`avatar-sm rounded-circle bg-${color} me-3`}
                           >
-                            <i
-                              className={`${ICONOS[servicio]} font-size-20`}
-                            />
-                          </span>
+                            <span
+                              className={`avatar-title rounded-circle bg-${color}`}
+                            >
+                              <i
+                                className={`${ICONOS[servicio]} font-size-20`}
+                              />
+                            </span>
+                          </div>
+
+                          <div>
+                            <p className="text-muted text-capitalize mb-1">
+                              {servicio}
+                            </p>
+
+                            <h5
+                              className={`mb-0 text-${color}`}
+                            >
+                              {
+                                estado ??
+                                "-"
+                              }
+                            </h5>
+                          </div>
 
                         </div>
 
-                        <div>
-
-                          <p className="text-muted text-capitalize mb-1">
-                            {servicio}
-                          </p>
-
-                          <h5
-                            className={`mb-0 text-${color}`}
-                          >
-                            {estado ?? "-"}
-                          </h5>
-
-                        </div>
-
-                      </div>
-
-                    </CardBody>
-
-                  </Card>
-
-                </Col>
-
-              );
-            })}
+                      </CardBody>
+                    </Card>
+                  </Col>
+                );
+              }
+            )}
 
           </Row>
 
         </Container>
-
       </div>
-
     </React.Fragment>
   );
 };
@@ -1229,4 +1077,6 @@ Dashboard.propTypes = {
 };
 
 
-export default withTranslation()(Dashboard);
+export default withTranslation()(
+  Dashboard
+);

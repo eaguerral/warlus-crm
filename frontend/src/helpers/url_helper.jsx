@@ -1,7 +1,7 @@
 const AUTH_API =
   import.meta.env.VITE_AUTH_API_URL || "/api/auth";
 
-// REGISTER
+// REGISTER PUBLICO
 export const POST_FAKE_REGISTER = "/post-fake-register";
 export const POST_JWT_REGISTER = `${AUTH_API}/register`;
 

@@ -32,9 +32,7 @@ function* registerUser({
     history,
   },
 }) {
-
   try {
-
     const response = yield call(
       postJwtRegister,
       {
@@ -62,7 +60,6 @@ function* registerUser({
     history("/login");
 
   } catch (error) {
-
     const message = toErrorMessage(error);
 
     yield put(
