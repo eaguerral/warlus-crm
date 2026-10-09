@@ -167,6 +167,12 @@ const SidebarContent = (props) => {
                 <span>Catalogo</span>
               </Link>
             </li>
+            <li>
+              <Link to="/pedidos">
+                <i className="bx bx-cart"></i>
+                <span>Pedidos</span>
+              </Link>
+            </li>
           </ul>
         </div>
       </SimpleBar>
