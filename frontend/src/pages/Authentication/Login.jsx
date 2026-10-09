@@ -25,7 +25,7 @@ import {
 } from "reactstrap";
 
 // actions
-import { loginUser, socialLogin } from "/src/store/actions";
+import { loginUser } from "/src/store/actions";
 
 // import images
 import profile from "../../assets/images/profile-img.png";
@@ -34,7 +34,7 @@ import lightlogo from "../../assets/images/logo-light.svg";
 
 const Login = (props) => {
   //meta title
-  document.title = "Login | Warlus CRM";
+  document.title = "Iniciar sesion | Warlus CRM";
   const dispatch = useDispatch();
 
   const validation = useFormik({
@@ -42,12 +42,12 @@ const Login = (props) => {
     enableReinitialize: true,
 
     initialValues: {
-      email: "admin@themesbrand.com" || "",
-      password: "123456" || "",
+      email: "",
+      password: "",
     },
     validationSchema: Yup.object({
-      email: Yup.string().required("Please Enter Your Email"),
-      password: Yup.string().required("Please Enter Your Password"),
+      email: Yup.string().required("Ingresa tu correo electronico"),
+      password: Yup.string().required("Ingresa tu contraseña"),
     }),
     onSubmit: (values) => {
       dispatch(loginUser(values, props.router.navigate));
@@ -65,15 +65,6 @@ const Login = (props) => {
     error
   } = useSelector(LoginProperties);
 
-  const signIn = type => {
-    dispatch(socialLogin(type, props.router.navigate));
-  };
-
-  //for facebook and google authentication
-  const socialResponse = type => {
-    signIn(type);
-  };
-
   return (
     <React.Fragment>
       <div className="home-btn d-none d-sm-block">
@@ -90,8 +81,8 @@ const Login = (props) => {
                   <Row>
                     <Col xs={7}>
                       <div className="text-primary p-4">
-                        <h5 className="text-primary">Welcome Back !</h5>
-                        <p>Sign in to continue to Warlus CRM.</p>
+                        <h5 className="text-primary">¡Bienvenido de nuevo!</h5>
+                        <p>Inicia sesion para continuar en Warlus CRM.</p>
                       </div>
                     </Col>
                     <Col className="col-5 align-self-end">
@@ -138,11 +129,11 @@ const Login = (props) => {
                       {error ? <Alert color="danger">{error}</Alert> : null}
 
                       <div className="mb-3">
-                        <Label className="form-label">Email</Label>
+                        <Label className="form-label">Correo electronico</Label>
                         <Input
                           name="email"
                           className="form-control"
-                          placeholder="Enter email"
+                          placeholder="Ingresa tu correo"
                           type="email"
                           onChange={validation.handleChange}
                           onBlur={validation.handleBlur}
@@ -161,13 +152,13 @@ const Login = (props) => {
                       </div>
 
                       <div className="mb-3">
-                        <Label className="form-label">Password</Label>
+                        <Label className="form-label">Contraseña</Label>
                         <Input
                           name="password"
                           autoComplete="off"
                           value={validation.values.password || ""}
                           type="password"
-                          placeholder="Enter Password"
+                          placeholder="Ingresa tu contraseña"
                           onChange={validation.handleChange}
                           onBlur={validation.handleBlur}
                           invalid={
@@ -185,99 +176,19 @@ const Login = (props) => {
                         ) : null}
                       </div>
 
-                      <div className="form-check">
-                        <input
-                          type="checkbox"
-                          className="form-check-input"
-                          id="customControlInline"
-                        />
-                        <label
-                          className="form-check-label"
-                          htmlFor="customControlInline"
-                        >
-                          Remember me
-                        </label>
-                      </div>
-
                       <div className="mt-3 d-grid">
                         <button
                           className="btn btn-primary btn-block"
                           type="submit"
                         >
-                          Log In
+                          Iniciar sesion
                         </button>
-                      </div>
-
-                      <div className="mt-4 text-center">
-                        <h5 className="font-size-14 mb-3">Sign in with</h5>
-
-                        <ul className="list-inline">
-                          <li className="list-inline-item">
-                            <Link
-                              to="#"
-                              className="social-list-item bg-primary text-white border-primary"
-                              onClick={e => {
-                                e.preventDefault();
-                                socialResponse("facebook");
-                              }}
-                            >
-                              <i className="mdi mdi-facebook" />
-                            </Link>
-                          </li>
-                          {/*<li className="list-inline-item">*/}
-                          {/*  <TwitterLogin*/}
-                          {/*    loginUrl={*/}
-                          {/*      "http://localhost:4000/api/v1/auth/twitter"*/}
-                          {/*    }*/}
-                          {/*    onSuccess={this.twitterResponse}*/}
-                          {/*    onFailure={this.onFailure}*/}
-                          {/*    requestTokenUrl={*/}
-                          {/*      "http://localhost:4000/api/v1/auth/twitter/revers"*/}
-                          {/*    }*/}
-                          {/*    showIcon={false}*/}
-                          {/*    tag={"div"}*/}
-                          {/*  >*/}
-                          {/*    <a*/}
-                          {/*      href=""*/}
-                          {/*      className="social-list-item bg-info text-white border-info"*/}
-                          {/*    >*/}
-                          {/*      <i className="mdi mdi-twitter"/>*/}
-                          {/*    </a>*/}
-                          {/*  </TwitterLogin>*/}
-                          {/*</li>*/}
-                          <li className="list-inline-item">
-                            <Link
-                              to="#"
-                              className="social-list-item bg-danger text-white border-danger"
-                              onClick={e => {
-                                e.preventDefault();
-                                socialResponse("google");
-                              }}
-                            >
-                              <i className="mdi mdi-google" />
-                            </Link>
-                          </li>
-                        </ul>
-                      </div>
-
-                      <div className="mt-4 text-center">
-                        <Link to="/forgot-password" className="text-muted">
-                          <i className="mdi mdi-lock me-1" />
-                          Forgot your password?
-                        </Link>
                       </div>
                     </Form>
                   </div>
                 </CardBody>
               </Card>
               <div className="mt-5 text-center">
-                <p>
-                  Don&#39;t have an account ?{" "}
-                  <Link to="/register" className="fw-medium text-primary">
-                    {" "}
-                    Signup now{" "}
-                  </Link>{" "}
-                </p>
                 <p>
                   © {new Date().getFullYear()} Warlus CRM.
                 </p>

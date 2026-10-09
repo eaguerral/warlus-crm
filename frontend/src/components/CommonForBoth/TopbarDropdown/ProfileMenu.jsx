@@ -1,11 +1,6 @@
 import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
-import {
-  Dropdown,
-  DropdownToggle,
-  DropdownMenu,
-  DropdownItem,
-} from "reactstrap";
+import { Dropdown, DropdownToggle, DropdownMenu } from "reactstrap";
 
 //i18n
 import { withTranslation } from "react-i18next";
@@ -60,25 +55,6 @@ const ProfileMenu = (props) => {
           <i className="mdi mdi-chevron-down d-none d-xl-inline-block" />
         </DropdownToggle>
         <DropdownMenu className="dropdown-menu-end">
-          <DropdownItem tag="a" href="/profile">
-            {" "}
-            <i className="bx bx-user font-size-16 align-middle me-1" />
-            {props.t("Profile")}{" "}
-          </DropdownItem>
-          <DropdownItem tag="a" href="/crypto-wallet">
-            <i className="bx bx-wallet font-size-16 align-middle me-1" />
-            {props.t("My Wallet")}
-          </DropdownItem>
-          <DropdownItem tag="a" href="#">
-            <span className="badge bg-success float-end">11</span>
-            <i className="bx bx-wrench font-size-16 align-middle me-1" />
-            {props.t("Settings")}
-          </DropdownItem>
-          <DropdownItem tag="a" href="auth-lock-screen">
-            <i className="bx bx-lock-open font-size-16 align-middle me-1" />
-            {props.t("Lock screen")}
-          </DropdownItem>
-          <div className="dropdown-divider" />
           <Link to="/logout" className="dropdown-item">
             <i className="bx bx-power-off font-size-16 align-middle me-1 text-danger" />
             <span>{props.t("Logout")}</span>
