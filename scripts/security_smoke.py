@@ -1,16 +1,15 @@
 import json
+import os
 import time
 import urllib.error
 import urllib.request
 from uuid import uuid4
 
 
-AUTH = "http://localhost:8081"
-CATALOGO = "http://localhost:8082"
-PEDIDOS = "http://localhost:8083"
-PAGOS = "http://localhost:8084"
-
-
+AUTH = os.getenv("AUTH_BASE_URL", "http://localhost:8081")
+CATALOGO = os.getenv("CATALOGO_BASE_URL", "http://localhost:8082")
+PEDIDOS = os.getenv("PEDIDOS_BASE_URL", "http://localhost:8083")
+PAGOS = os.getenv("PAGOS_BASE_URL", "http://localhost:8084")
 def request(method, url, body=None, token=None, expected=None):
     headers = {
         "Content-Type": "application/json",

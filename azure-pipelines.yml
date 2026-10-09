@@ -206,71 +206,131 @@ stages:
 
           - powershell: |
               @"
-              DB_HOST=postgres
-              DB_PORT=5432
-              DB_NAME=warlus
-              DB_USER=warlus_user
-              DB_PASSWORD=change_me
+              DB_NAME=warlus_ci
+              DB_USER=warlus_ci_user
+              DB_PASSWORD=warlus_ci_password
 
-              REDIS_HOST=redis
-              REDIS_PORT=6379
-
-              AUTH_PORT=8081
-              CATALOGO_PORT=8082
-              PEDIDOS_PORT=8083
-              PAGOS_PORT=8084
-
-              APP_ENV=test
               JWT_SECRET=$(TEST_JWT_SECRET)
               JWT_ISSUER=warlus-crm
               JWT_AUDIENCE=warlus-crm-web
               JWT_EXPIRATION_HOURS=8
 
               CORS_ORIGINS=http://localhost:5173,http://localhost:4173
-              "@ | Set-Content -Encoding utf8 ".env.pipeline"
-
-            displayName: Crear entorno integracion
-
-          - powershell: |
-              docker compose `
-                  --env-file .env.pipeline `
-                  down `
-                  --remove-orphans
+              "@ | Set-Content -Encoding ascii ".env.pipeline"
 
               docker compose `
-                  --env-file .env.pipeline `
-                  up `
-                  -d `
-                  --build
+                -p "warlus-ci-$(Build.BuildId)" `
+                -f docker-compose.ci.yml `
+                --env-file .env.pipeline `
+                config `
+                --quiet
 
               if ($LASTEXITCODE -ne 0) {
-                  throw "Fallo docker compose up"
+                  throw "docker-compose.ci.yml no es valido"
               }
 
-            displayName: Levantar entorno
+            displayName: Crear y validar entorno CI
 
           - powershell: |
-              Start-Sleep -Seconds 15
+              $project = "warlus-ci-$(Build.BuildId)"
+
+              docker compose `
+                -p $project `
+                -f docker-compose.ci.yml `
+                --env-file .env.pipeline `
+                down `
+                --volumes `
+                --remove-orphans 2>$null
+
+              docker compose `
+                -p $project `
+                -f docker-compose.ci.yml `
+                --env-file .env.pipeline `
+                up `
+                -d `
+                --build `
+                --wait `
+                --wait-timeout 120
+
+              if ($LASTEXITCODE -ne 0) {
+                  docker compose `
+                    -p $project `
+                    -f docker-compose.ci.yml `
+                    --env-file .env.pipeline `
+                    ps
+
+                  docker compose `
+                    -p $project `
+                    -f docker-compose.ci.yml `
+                    --env-file .env.pipeline `
+                    logs `
+                    --no-color `
+                    --tail 150
+
+                  throw "Fallo al levantar entorno CI aislado"
+              }
+
+              docker compose `
+                -p $project `
+                -f docker-compose.ci.yml `
+                --env-file .env.pipeline `
+                ps
+
+            displayName: Levantar entorno CI aislado
+
+          - powershell: |
+              $project = "warlus-ci-$(Build.BuildId)"
 
               Get-Content `
                 "scripts\seed_demo.sql" `
                 -Raw |
               docker compose `
+                -p $project `
+                -f docker-compose.ci.yml `
                 --env-file .env.pipeline `
                 exec -T postgres `
                 psql `
                 -v ON_ERROR_STOP=1 `
-                -U warlus_user `
-                -d warlus
+                -U warlus_ci_user `
+                -d warlus_ci
 
               if ($LASTEXITCODE -ne 0) {
                   throw "Fallo seed demo"
               }
 
-            displayName: Cargar demo reproducible
+              $counts = docker compose `
+                -p $project `
+                -f docker-compose.ci.yml `
+                --env-file .env.pipeline `
+                exec -T postgres `
+                psql `
+                -U warlus_ci_user `
+                -d warlus_ci `
+                -t `
+                -A `
+                -c "SELECT (SELECT COUNT(*) FROM servicios WHERE descripcion LIKE 'DEMO PRESENTACION:%') || '|' || (SELECT COUNT(*) FROM pedidos WHERE cliente LIKE 'Demo - %') || '|' || (SELECT COUNT(*) FROM pagos p JOIN pedidos pe ON pe.id=p.pedido_id WHERE pe.cliente LIKE 'Demo - %');"
+
+              $counts = $counts.Trim()
+
+              Write-Host "Conteos demo: $counts"
+
+              if ($counts -ne "15|20|16") {
+                  throw "Conteos demo incorrectos. Esperado 15|20|16, recibido $counts"
+              }
+
+            displayName: Cargar y validar demo reproducible
 
           - powershell: |
               $python = "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe"
+
+              if (-not (Test-Path $python)) {
+                  throw "Python 3.12 no esta instalado en el agente."
+              }
+
+              $env:AUTH_BASE_URL = "http://localhost:18081"
+              $env:CATALOGO_BASE_URL = "http://localhost:18082"
+              $env:PEDIDOS_BASE_URL = "http://localhost:18083"
+              $env:PAGOS_BASE_URL = "http://localhost:18084"
 
               & $python "scripts\security_smoke.py"
 
@@ -278,22 +338,31 @@ stages:
                   throw "Fallo prueba de seguridad"
               }
 
-            displayName: Probar privacidad y agregados
+            displayName: Probar privacidad y dashboard global
 
           - powershell: |
-              docker compose `
-                  --env-file .env.pipeline `
-                  exec -T postgres `
-                  psql `
-                  -U warlus_user `
-                  -d warlus `
-                  -c "DELETE FROM usuarios WHERE email LIKE 'security.%@example.com';"
+              $project = "warlus-ci-$(Build.BuildId)"
 
               docker compose `
-                  --env-file .env.pipeline `
-                  ps
+                -p $project `
+                -f docker-compose.ci.yml `
+                --env-file .env.pipeline `
+                ps
 
-            displayName: Limpieza prueba y estado final
+              docker compose `
+                -p $project `
+                -f docker-compose.ci.yml `
+                --env-file .env.pipeline `
+                down `
+                --volumes `
+                --remove-orphans
+
+              if ($LASTEXITCODE -ne 0) {
+                  Write-Warning "El cleanup de Docker devolvio codigo distinto de cero."
+              }
+
+            displayName: Limpiar entorno CI
+            condition: always()
 
 
   - stage: Package
@@ -312,7 +381,13 @@ stages:
             clean: true
 
           - powershell: |
+              $ErrorActionPreference = "Stop"
+
               $output = "$(Build.ArtifactStagingDirectory)\backends"
+
+              if (Test-Path $output) {
+                  Remove-Item $output -Recurse -Force
+              }
 
               New-Item `
                 -ItemType Directory `
@@ -330,8 +405,21 @@ stages:
               foreach ($service in $services) {
 
                   $source = "$(Build.SourcesDirectory)\src\$service"
-                  $temp = "$(Build.ArtifactStagingDirectory)\$service"
+                  $temp = "$(Build.ArtifactStagingDirectory)\package-$service"
                   $zip = "$output\warlus-$service.zip"
+
+                  if (-not (Test-Path "$source\requirements.txt")) {
+                      throw "Falta requirements.txt en $service"
+                  }
+
+                  $pythonFiles = Get-ChildItem `
+                    -Path $source `
+                    -Filter "*.py" `
+                    -File
+
+                  if ($pythonFiles.Count -eq 0) {
+                      throw "No hay archivos Python en $service"
+                  }
 
                   if (Test-Path $temp) {
                       Remove-Item $temp -Recurse -Force
@@ -343,16 +431,39 @@ stages:
                     -Force |
                   Out-Null
 
-                  Copy-Item "$source\*.py" $temp
-                  Copy-Item "$source\requirements.txt" $temp
+                  Copy-Item "$source\*.py" $temp -Force
+                  Copy-Item "$source\requirements.txt" $temp -Force
 
                   Compress-Archive `
                     -Path "$temp\*" `
                     -DestinationPath $zip `
                     -Force
+
+                  if (-not (Test-Path $zip)) {
+                      throw "No se genero $zip"
+                  }
+
+                  if ((Get-Item $zip).Length -le 0) {
+                      throw "El ZIP $service esta vacio"
+                  }
+
+                  Write-Host "$service => $((Get-Item $zip).Length) bytes"
               }
 
-            displayName: Crear ZIP backends
+              $zips = Get-ChildItem `
+                -Path $output `
+                -Filter "warlus-*.zip" `
+                -File
+
+              if ($zips.Count -ne 4) {
+                  throw "Se esperaban 4 ZIP y se encontraron $($zips.Count)"
+              }
+
+              Write-Host ""
+              Write-Host "Paquetes generados:"
+              $zips | Select-Object Name, Length | Format-Table -AutoSize
+
+            displayName: Crear y validar cuatro ZIP
 
           - task: PublishPipelineArtifact@1
             displayName: Publicar backends
