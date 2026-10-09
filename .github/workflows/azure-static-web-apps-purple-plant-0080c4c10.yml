@@ -1,0 +1,79 @@
+name: Azure Static Web Apps CI/CD
+
+on:
+  push:
+    branches:
+      - prod
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    branches:
+      - prod
+
+jobs:
+  build_and_deploy_job:
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
+    runs-on: ubuntu-latest
+    name: Build and Deploy Job
+
+    env:
+      VITE_APP_DEFAULTAUTH: jwt
+      VITE_AUTH_API_URL: ${{ vars.VITE_AUTH_API_URL }}
+      VITE_CATALOGO_API_URL: ${{ vars.VITE_CATALOGO_API_URL }}
+      VITE_PEDIDOS_API_URL: ${{ vars.VITE_PEDIDOS_API_URL }}
+      VITE_PAGOS_API_URL: ${{ vars.VITE_PAGOS_API_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          lfs: false
+
+      - name: Validate production API URLs
+        shell: bash
+        run: |
+          set -e
+
+          for name in \
+            VITE_AUTH_API_URL \
+            VITE_CATALOGO_API_URL \
+            VITE_PEDIDOS_API_URL \
+            VITE_PAGOS_API_URL
+          do
+            value="${!name}"
+
+            if [ -z "$value" ]; then
+              echo "::error::$name no esta configurada como Repository Variable."
+              exit 1
+            fi
+
+            case "$value" in
+              https://*) ;;
+              *)
+                echo "::error::$name debe iniciar con https://"
+                exit 1
+                ;;
+            esac
+          done
+
+      - name: Build And Deploy
+        id: builddeploy
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PURPLE_PLANT_0080C4C10 }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: "upload"
+          app_location: "./frontend"
+          api_location: ""
+          output_location: "dist"
+
+  close_pull_request_job:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    name: Close Pull Request Job
+    steps:
+      - name: Close Pull Request
+        id: closepullrequest
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PURPLE_PLANT_0080C4C10 }}
+          action: "close"

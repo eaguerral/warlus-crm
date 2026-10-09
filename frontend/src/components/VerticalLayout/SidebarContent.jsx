@@ -161,6 +161,24 @@ const SidebarContent = (props) => {
                 <span>{props.t("Dashboard")}</span>
               </Link>
             </li>
+            <li>
+              <Link to="/catalogo">
+                <i className="bx bx-package"></i>
+                <span>Catalogo</span>
+              </Link>
+            </li>
+            <li>
+              <Link to="/pedidos">
+                <i className="bx bx-cart"></i>
+                <span>Pedidos</span>
+              </Link>
+            </li>
+            <li>
+              <Link to="/pagos">
+                <i className="bx bx-credit-card"></i>
+                <span>Pagos</span>
+              </Link>
+            </li>
           </ul>
         </div>
       </SimpleBar>
