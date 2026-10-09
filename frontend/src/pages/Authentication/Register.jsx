@@ -61,8 +61,24 @@ const Register = () => {
 
       password: Yup.string()
         .min(
-          8,
-          "La contraseña debe tener al menos 8 caracteres"
+          10,
+          "La contraseña debe tener al menos 10 caracteres"
+        )
+        .matches(
+          /[A-Z]/,
+          "La contraseña debe incluir una mayuscula"
+        )
+        .matches(
+          /[a-z]/,
+          "La contraseña debe incluir una minuscula"
+        )
+        .matches(
+          /\d/,
+          "La contraseña debe incluir un numero"
+        )
+        .matches(
+          /[^A-Za-z0-9]/,
+          "La contraseña debe incluir un caracter especial"
         )
         .required("Ingresa una contraseña"),
 

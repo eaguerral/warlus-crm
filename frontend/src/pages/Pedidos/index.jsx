@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Container,
   Card,
@@ -30,6 +30,7 @@ const Pedidos = () => {
   document.title = "Pedidos | Warlus CRM";
 
   const [pedidos, setPedidos] = useState([]);
+  const [servicios, setServicios] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
 
@@ -42,15 +43,44 @@ const Pedidos = () => {
   const cargar = useCallback(() => {
     setCargando(true);
     setError(null);
-    apiFetch("pedidos", "/pedidos")
-      .then((data) => setPedidos(data))
-      .catch(() => setError("No se pudo cargar los pedidos"))
+
+    Promise.all([
+      apiFetch("pedidos", "/pedidos"),
+      apiFetch("catalogo", "/servicios"),
+    ])
+      .then(([pedidosData, serviciosData]) => {
+        setPedidos(pedidosData);
+        setServicios(serviciosData);
+      })
+      .catch((err) => setError(err?.message || "No se pudo cargar los pedidos"))
       .finally(() => setCargando(false));
   }, []);
 
   useEffect(cargar, [cargar]);
 
+  const serviciosActivos = useMemo(
+    () => servicios.filter((servicio) => servicio.activo),
+    [servicios]
+  );
+
+  const serviciosPorId = useMemo(
+    () =>
+      Object.fromEntries(
+        servicios.map((servicio) => [String(servicio.id), servicio])
+      ),
+    [servicios]
+  );
+
   const abrirModalCrear = () => {
+    if (serviciosActivos.length === 0) {
+      Swal.fire(
+        "Sin servicios disponibles",
+        "Debe existir al menos un servicio activo antes de crear un pedido.",
+        "warning"
+      );
+      return;
+    }
+
     setPedidoEnEdicion(null);
     setForm(FORM_INICIAL);
     setErrorForm(null);
@@ -78,7 +108,7 @@ const Pedidos = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (!form.cliente || !form.servicio_id) {
+    if (!form.cliente.trim() || !form.servicio_id) {
       setErrorForm("Cliente y servicio son obligatorios");
       return;
     }
@@ -87,7 +117,7 @@ const Pedidos = () => {
     setErrorForm(null);
 
     const payload = {
-      cliente: form.cliente,
+      cliente: form.cliente.trim(),
       servicio_id: parseInt(form.servicio_id, 10),
       estado: form.estado || "pendiente",
     };
@@ -113,7 +143,7 @@ const Pedidos = () => {
           showConfirmButton: false,
         });
       })
-      .catch(() => setErrorForm("No se pudo guardar el pedido"))
+      .catch((err) => setErrorForm(err?.message || "No se pudo guardar el pedido"))
       .finally(() => setGuardando(false));
   };
 
@@ -139,8 +169,8 @@ const Pedidos = () => {
               showConfirmButton: false,
             });
           })
-          .catch(() =>
-            Swal.fire("Error", "No se pudo eliminar el pedido", "error")
+          .catch((err) =>
+            Swal.fire("Error", err?.message || "No se pudo eliminar el pedido", "error")
           );
       }
     });
@@ -192,45 +222,49 @@ const Pedidos = () => {
                     </td>
                   </tr>
                 ) : (
-                  pedidos.map((pedido) => (
-                    <tr key={pedido.id}>
-                      <td>{pedido.cliente}</td>
-                      <td>{pedido.servicio_id}</td>
-                      <td>{pedido.estado}</td>
-                      <td>
-                        <Button
-                          color="warning"
-                          size="sm"
-                          className="me-1"
-                          id={`btn-editar-${pedido.id}`}
-                          onClick={() => abrirModalEditar(pedido)}
-                        >
-                          <i className="bx bx-pencil" />
-                        </Button>
-                        <UncontrolledTooltip
-                          placement="top"
-                          target={`btn-editar-${pedido.id}`}
-                        >
-                          Editar
-                        </UncontrolledTooltip>
+                  pedidos.map((pedido) => {
+                    const servicio = serviciosPorId[String(pedido.servicio_id)];
 
-                        <Button
-                          color="danger"
-                          size="sm"
-                          id={`btn-borrar-${pedido.id}`}
-                          onClick={() => handleEliminar(pedido)}
-                        >
-                          <i className="bx bx-trash" />
-                        </Button>
-                        <UncontrolledTooltip
-                          placement="top"
-                          target={`btn-borrar-${pedido.id}`}
-                        >
-                          Borrar
-                        </UncontrolledTooltip>
-                      </td>
-                    </tr>
-                  ))
+                    return (
+                      <tr key={pedido.id}>
+                        <td>{pedido.cliente}</td>
+                        <td>{servicio?.nombre || `Servicio #${pedido.servicio_id}`}</td>
+                        <td>{pedido.estado}</td>
+                        <td>
+                          <Button
+                            color="warning"
+                            size="sm"
+                            className="me-1"
+                            id={`btn-editar-${pedido.id}`}
+                            onClick={() => abrirModalEditar(pedido)}
+                          >
+                            <i className="bx bx-pencil" />
+                          </Button>
+                          <UncontrolledTooltip
+                            placement="top"
+                            target={`btn-editar-${pedido.id}`}
+                          >
+                            Editar
+                          </UncontrolledTooltip>
+
+                          <Button
+                            color="danger"
+                            size="sm"
+                            id={`btn-borrar-${pedido.id}`}
+                            onClick={() => handleEliminar(pedido)}
+                          >
+                            <i className="bx bx-trash" />
+                          </Button>
+                          <UncontrolledTooltip
+                            placement="top"
+                            target={`btn-borrar-${pedido.id}`}
+                          >
+                            Borrar
+                          </UncontrolledTooltip>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </Table>
@@ -256,15 +290,22 @@ const Pedidos = () => {
               </FormGroup>
 
               <FormGroup>
-                <Label for="servicio_id">ID de servicio</Label>
+                <Label for="servicio_id">Servicio</Label>
                 <Input
                   id="servicio_id"
                   name="servicio_id"
-                  type="number"
-                  min="1"
+                  type="select"
                   value={form.servicio_id}
                   onChange={handleChange}
-                />
+                >
+                  <option value="">Selecciona un servicio</option>
+                  {serviciosActivos.map((servicio) => (
+                    <option key={servicio.id} value={servicio.id}>
+                      {servicio.nombre} - Q {Number(servicio.precio).toFixed(2)}
+                      {servicio.tipo === "global" ? " (Global)" : ""}
+                    </option>
+                  ))}
+                </Input>
               </FormGroup>
 
               <FormGroup>
@@ -272,9 +313,16 @@ const Pedidos = () => {
                 <Input
                   id="estado"
                   name="estado"
+                  type="select"
                   value={form.estado}
                   onChange={handleChange}
-                />
+                >
+                  <option value="pendiente">Pendiente</option>
+                  <option value="en proceso">En proceso</option>
+                  <option value="completado">Completado</option>
+                  <option value="cancelado">Cancelado</option>
+                  <option value="cerrado">Cerrado</option>
+                </Input>
               </FormGroup>
             </ModalBody>
             <ModalFooter>

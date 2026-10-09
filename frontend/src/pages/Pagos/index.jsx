@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Container,
   Card,
@@ -31,6 +31,8 @@ const Pagos = () => {
   document.title = "Pagos | Warlus CRM";
 
   const [pagos, setPagos] = useState([]);
+  const [pedidos, setPedidos] = useState([]);
+  const [servicios, setServicios] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
 
@@ -43,15 +45,46 @@ const Pagos = () => {
   const cargar = useCallback(() => {
     setCargando(true);
     setError(null);
-    apiFetch("pagos", "/pagos")
-      .then((data) => setPagos(data))
-      .catch(() => setError("No se pudo cargar los pagos"))
+
+    Promise.all([
+      apiFetch("pagos", "/pagos"),
+      apiFetch("pedidos", "/pedidos"),
+      apiFetch("catalogo", "/servicios"),
+    ])
+      .then(([pagosData, pedidosData, serviciosData]) => {
+        setPagos(pagosData);
+        setPedidos(pedidosData);
+        setServicios(serviciosData);
+      })
+      .catch((err) => setError(err?.message || "No se pudo cargar los pagos"))
       .finally(() => setCargando(false));
   }, []);
 
   useEffect(cargar, [cargar]);
 
+  const pedidosPorId = useMemo(
+    () => Object.fromEntries(pedidos.map((pedido) => [String(pedido.id), pedido])),
+    [pedidos]
+  );
+
+  const serviciosPorId = useMemo(
+    () =>
+      Object.fromEntries(
+        servicios.map((servicio) => [String(servicio.id), servicio])
+      ),
+    [servicios]
+  );
+
   const abrirModalCrear = () => {
+    if (pedidos.length === 0) {
+      Swal.fire(
+        "Primero crea un pedido",
+        "Solo puedes registrar pagos para pedidos que pertenecen a tu cuenta.",
+        "warning"
+      );
+      return;
+    }
+
     setPagoEnEdicion(null);
     setForm(FORM_INICIAL);
     setErrorForm(null);
@@ -74,7 +107,23 @@ const Pagos = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+
+    setForm((prev) => {
+      const next = { ...prev, [name]: value };
+
+      if (name === "pedido_id" && !pagoEnEdicion) {
+        const pedido = pedidosPorId[String(value)];
+        const servicio = pedido
+          ? serviciosPorId[String(pedido.servicio_id)]
+          : null;
+
+        if (servicio?.precio) {
+          next.monto = String(servicio.precio);
+        }
+      }
+
+      return next;
+    });
   };
 
   const handleSubmit = (e) => {
@@ -85,12 +134,19 @@ const Pagos = () => {
       return;
     }
 
+    const monto = parseFloat(form.monto);
+
+    if (!Number.isFinite(monto) || monto <= 0) {
+      setErrorForm("El monto debe ser mayor que cero");
+      return;
+    }
+
     setGuardando(true);
     setErrorForm(null);
 
     const payload = {
       pedido_id: parseInt(form.pedido_id, 10),
-      monto: parseFloat(form.monto),
+      monto,
       metodo: form.metodo,
       estado: form.estado || "pendiente",
     };
@@ -116,7 +172,7 @@ const Pagos = () => {
           showConfirmButton: false,
         });
       })
-      .catch(() => setErrorForm("No se pudo guardar el pago"))
+      .catch((err) => setErrorForm(err?.message || "No se pudo guardar el pago"))
       .finally(() => setGuardando(false));
   };
 
@@ -142,8 +198,8 @@ const Pagos = () => {
               showConfirmButton: false,
             });
           })
-          .catch(() =>
-            Swal.fire("Error", "No se pudo eliminar el pago", "error")
+          .catch((err) =>
+            Swal.fire("Error", err?.message || "No se pudo eliminar el pago", "error")
           );
       }
     });
@@ -196,46 +252,54 @@ const Pagos = () => {
                     </td>
                   </tr>
                 ) : (
-                  pagos.map((pago) => (
-                    <tr key={pago.id}>
-                      <td>{pago.pedido_id}</td>
-                      <td>{pago.monto}</td>
-                      <td>{pago.metodo}</td>
-                      <td>{pago.estado}</td>
-                      <td>
-                        <Button
-                          color="warning"
-                          size="sm"
-                          className="me-1"
-                          id={`btn-editar-${pago.id}`}
-                          onClick={() => abrirModalEditar(pago)}
-                        >
-                          <i className="bx bx-pencil" />
-                        </Button>
-                        <UncontrolledTooltip
-                          placement="top"
-                          target={`btn-editar-${pago.id}`}
-                        >
-                          Editar
-                        </UncontrolledTooltip>
+                  pagos.map((pago) => {
+                    const pedido = pedidosPorId[String(pago.pedido_id)];
 
-                        <Button
-                          color="danger"
-                          size="sm"
-                          id={`btn-borrar-${pago.id}`}
-                          onClick={() => handleEliminar(pago)}
-                        >
-                          <i className="bx bx-trash" />
-                        </Button>
-                        <UncontrolledTooltip
-                          placement="top"
-                          target={`btn-borrar-${pago.id}`}
-                        >
-                          Borrar
-                        </UncontrolledTooltip>
-                      </td>
-                    </tr>
-                  ))
+                    return (
+                      <tr key={pago.id}>
+                        <td>
+                          {pedido
+                            ? `#${pedido.id} - ${pedido.cliente}`
+                            : `#${pago.pedido_id}`}
+                        </td>
+                        <td>Q {Number(pago.monto).toFixed(2)}</td>
+                        <td>{pago.metodo}</td>
+                        <td>{pago.estado}</td>
+                        <td>
+                          <Button
+                            color="warning"
+                            size="sm"
+                            className="me-1"
+                            id={`btn-editar-${pago.id}`}
+                            onClick={() => abrirModalEditar(pago)}
+                          >
+                            <i className="bx bx-pencil" />
+                          </Button>
+                          <UncontrolledTooltip
+                            placement="top"
+                            target={`btn-editar-${pago.id}`}
+                          >
+                            Editar
+                          </UncontrolledTooltip>
+
+                          <Button
+                            color="danger"
+                            size="sm"
+                            id={`btn-borrar-${pago.id}`}
+                            onClick={() => handleEliminar(pago)}
+                          >
+                            <i className="bx bx-trash" />
+                          </Button>
+                          <UncontrolledTooltip
+                            placement="top"
+                            target={`btn-borrar-${pago.id}`}
+                          >
+                            Borrar
+                          </UncontrolledTooltip>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </Table>
@@ -251,15 +315,29 @@ const Pagos = () => {
               {errorForm ? <p className="text-danger">{errorForm}</p> : null}
 
               <FormGroup>
-                <Label for="pedido_id">ID de pedido</Label>
+                <Label for="pedido_id">Pedido</Label>
                 <Input
                   id="pedido_id"
                   name="pedido_id"
-                  type="number"
-                  min="1"
+                  type="select"
                   value={form.pedido_id}
                   onChange={handleChange}
-                />
+                >
+                  <option value="">Selecciona un pedido</option>
+                  {pedidos.map((pedido) => {
+                    const servicio = serviciosPorId[String(pedido.servicio_id)];
+
+                    return (
+                      <option key={pedido.id} value={pedido.id}>
+                        #{pedido.id} - {pedido.cliente}
+                        {servicio?.nombre ? ` - ${servicio.nombre}` : ""}
+                      </option>
+                    );
+                  })}
+                </Input>
+                <small className="text-muted">
+                  Solo se muestran pedidos pertenecientes a tu cuenta.
+                </small>
               </FormGroup>
 
               <FormGroup>
@@ -269,7 +347,7 @@ const Pagos = () => {
                   name="monto"
                   type="number"
                   step="0.01"
-                  min="0"
+                  min="0.01"
                   value={form.monto}
                   onChange={handleChange}
                 />
@@ -280,9 +358,15 @@ const Pagos = () => {
                 <Input
                   id="metodo"
                   name="metodo"
+                  type="select"
                   value={form.metodo}
                   onChange={handleChange}
-                />
+                >
+                  <option value="">Selecciona un metodo</option>
+                  <option value="Efectivo">Efectivo</option>
+                  <option value="Tarjeta">Tarjeta</option>
+                  <option value="Transferencia">Transferencia</option>
+                </Input>
               </FormGroup>
 
               <FormGroup>
@@ -290,9 +374,16 @@ const Pagos = () => {
                 <Input
                   id="estado"
                   name="estado"
+                  type="select"
                   value={form.estado}
                   onChange={handleChange}
-                />
+                >
+                  <option value="pendiente">Pendiente</option>
+                  <option value="completado">Completado</option>
+                  <option value="pagado">Pagado</option>
+                  <option value="aprobado">Aprobado</option>
+                  <option value="rechazado">Rechazado</option>
+                </Input>
               </FormGroup>
             </ModalBody>
             <ModalFooter>
