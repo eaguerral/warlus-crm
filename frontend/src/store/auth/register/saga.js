@@ -1,50 +1,97 @@
-import { takeEvery, fork, put, all, call } from "redux-saga/effects"
-
-//Account Redux states
-import { REGISTER_USER } from "./actionTypes"
-import { registerUserSuccessful, registerUserFailed } from "./actions"
-
-//Include Both Helper File with needed methods
-import { getFirebaseBackend } from "../../../helpers/firebase_helper"
 import {
-  postFakeRegister,
+  all,
+  call,
+  fork,
+  put,
+  takeEvery,
+} from "redux-saga/effects";
+
+import Swal from "sweetalert2";
+
+import { REGISTER_USER } from "./actionTypes";
+
+import {
+  registerUserSuccessful,
+  registerUserFailed,
+} from "./actions";
+
+import {
   postJwtRegister,
-} from "../../../helpers/fakebackend_helper"
+} from "../../../helpers/fakebackend_helper";
 
-// initialize relavant method of both Auth
-const fireBaseBackend = getFirebaseBackend()
 
-// Is user register successfull then direct plot user in redux.
-function* registerUser({ payload: { user } }) {
-  console.log("using the following url for registration: ")
+const toErrorMessage = error =>
+  error?.response?.data?.detail ||
+  error?.message ||
+  "No fue posible crear la cuenta";
+
+
+function* registerUser({
+  payload: {
+    user,
+    history,
+  },
+}) {
   try {
-    console.log("Trying to register user (within try block)")
-    if (import.meta.env.VITE_APP_DEFAULTAUTH === "firebase") {
-      const response = yield call(
-        fireBaseBackend.registerUser,
-        user.email,
-        user.password
-      )
-      yield put(registerUserSuccessful(response))
-    } else if (import.meta.env.VITE_APP_DEFAULTAUTH === "jwt") {
-      const response = yield call(postJwtRegister, "/post-jwt-register", user)
-      yield put(registerUserSuccessful(response))
-    } else if (import.meta.env.VITE_APP_DEFAULTAUTH === "fake") {
-      const response = yield call(postFakeRegister, user)
-      yield put(registerUserSuccessful(response))
-    }
+    const response = yield call(
+      postJwtRegister,
+      {
+        email: user.email,
+        password: user.password,
+      }
+    );
+
+    yield put(
+      registerUserSuccessful(response)
+    );
+
+    yield call(() =>
+      Swal.fire({
+        icon: "success",
+        title: "Cuenta creada correctamente",
+        text: "Tu cuenta ya esta lista. Ahora puedes iniciar sesion.",
+        confirmButtonColor: "#556ee6",
+        timer: 1800,
+        timerProgressBar: true,
+        showConfirmButton: false,
+      })
+    );
+
+    history("/login");
+
   } catch (error) {
-    console.log("There was an error registering: ", error)
-    yield put(registerUserFailed(error))
+    const message = toErrorMessage(error);
+
+    yield put(
+      registerUserFailed(message)
+    );
+
+    yield call(() =>
+      Swal.fire({
+        icon: "error",
+        title: "No se pudo crear la cuenta",
+        text: message,
+        confirmButtonColor: "#556ee6",
+        confirmButtonText: "Entendido",
+      })
+    );
   }
 }
 
+
 export function* watchUserRegister() {
-  yield takeEvery(REGISTER_USER, registerUser)
+  yield takeEvery(
+    REGISTER_USER,
+    registerUser
+  );
 }
+
 
 function* accountSaga() {
-  yield all([fork(watchUserRegister)])
+  yield all([
+    fork(watchUserRegister),
+  ]);
 }
 
-export default accountSaga
+
+export default accountSaga;

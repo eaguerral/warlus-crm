@@ -11,6 +11,10 @@ class Pago(Base):
     id = Column(Integer, primary_key=True, index=True)
     pedido_id = Column(Integer, nullable=False)
     monto = Column(Numeric(10, 2), nullable=False)
-    metodo = Column(String, nullable=False)
-    estado = Column(String, default="pendiente", nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    metodo = Column(String(50), nullable=False)
+    estado = Column(String(40), default="pendiente", nullable=False)
+    usuario_id = Column(Integer, nullable=True, index=True)
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+    )

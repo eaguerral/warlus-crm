@@ -9,7 +9,11 @@ class Pedido(Base):
     __tablename__ = "pedidos"
 
     id = Column(Integer, primary_key=True, index=True)
-    cliente = Column(String, nullable=False)
+    cliente = Column(String(160), nullable=False)
     servicio_id = Column(Integer, nullable=False)
-    estado = Column(String, default="pendiente", nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    estado = Column(String(40), default="pendiente", nullable=False)
+    usuario_id = Column(Integer, nullable=True, index=True)
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+    )

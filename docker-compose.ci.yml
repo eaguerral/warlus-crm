@@ -2,66 +2,47 @@ services:
 
   postgres:
     image: postgres:18-alpine
-    container_name: warlus-postgres
-    restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-    ports:
-      - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql
-    networks:
-      - warlus-network
+      - postgres_ci_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-      start_period: 10s
-
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
 
   redis:
     image: redis:8-alpine
-    container_name: warlus-redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
     volumes:
-      - redis_data:/data
-    networks:
-      - warlus-network
+      - redis_ci_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-      start_period: 5s
-
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 3s
 
   auth:
     build:
       context: ./src/auth
-    image: warlus-auth:fastapi
-    container_name: warlus-auth
-    restart: unless-stopped
     ports:
-      - "${AUTH_PORT}:8081"
+      - "18081:8081"
     environment:
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT}
+      DB_HOST: postgres
+      DB_PORT: 5432
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
-      APP_ENV: ${APP_ENV}
+      APP_ENV: test
       JWT_SECRET: ${JWT_SECRET}
       JWT_ISSUER: ${JWT_ISSUER}
       JWT_AUDIENCE: ${JWT_AUDIENCE}
       JWT_EXPIRATION_HOURS: ${JWT_EXPIRATION_HOURS}
       CORS_ORIGINS: ${CORS_ORIGINS}
-    networks:
-      - warlus-network
     depends_on:
       postgres:
         condition: service_healthy
@@ -69,33 +50,27 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8081/health', timeout=3)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
 
   catalogo:
     build:
       context: ./src/catalogo
-    image: warlus-catalogo:fastapi
-    container_name: warlus-catalogo
-    restart: unless-stopped
     ports:
-      - "${CATALOGO_PORT}:8082"
+      - "18082:8082"
     environment:
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT}
+      DB_HOST: postgres
+      DB_PORT: 5432
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
-      APP_ENV: ${APP_ENV}
+      APP_ENV: test
       JWT_SECRET: ${JWT_SECRET}
       JWT_ISSUER: ${JWT_ISSUER}
       JWT_AUDIENCE: ${JWT_AUDIENCE}
       CORS_ORIGINS: ${CORS_ORIGINS}
-    networks:
-      - warlus-network
     depends_on:
       postgres:
         condition: service_healthy
@@ -103,33 +78,27 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8082/health', timeout=3)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
 
   pedidos:
     build:
       context: ./src/pedidos
-    image: warlus-pedidos:fastapi
-    container_name: warlus-pedidos
-    restart: unless-stopped
     ports:
-      - "${PEDIDOS_PORT}:8083"
+      - "18083:8083"
     environment:
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT}
+      DB_HOST: postgres
+      DB_PORT: 5432
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
-      APP_ENV: ${APP_ENV}
+      APP_ENV: test
       JWT_SECRET: ${JWT_SECRET}
       JWT_ISSUER: ${JWT_ISSUER}
       JWT_AUDIENCE: ${JWT_AUDIENCE}
       CORS_ORIGINS: ${CORS_ORIGINS}
-    networks:
-      - warlus-network
     depends_on:
       postgres:
         condition: service_healthy
@@ -139,33 +108,27 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8083/health', timeout=3)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
 
   pagos:
     build:
       context: ./src/pagos
-    image: warlus-pagos:fastapi
-    container_name: warlus-pagos
-    restart: unless-stopped
     ports:
-      - "${PAGOS_PORT}:8084"
+      - "18084:8084"
     environment:
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT}
+      DB_HOST: postgres
+      DB_PORT: 5432
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
-      APP_ENV: ${APP_ENV}
+      APP_ENV: test
       JWT_SECRET: ${JWT_SECRET}
       JWT_ISSUER: ${JWT_ISSUER}
       JWT_AUDIENCE: ${JWT_AUDIENCE}
       CORS_ORIGINS: ${CORS_ORIGINS}
-    networks:
-      - warlus-network
     depends_on:
       postgres:
         condition: service_healthy
@@ -175,21 +138,11 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8084/health', timeout=3)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
 
 volumes:
-  postgres_data:
-    name: warlus-postgres-data
-
-  redis_data:
-    name: warlus-redis-data
-
-
-networks:
-  warlus-network:
-    name: warlus-network
-    driver: bridge
+  postgres_ci_data:
+  redis_ci_data:

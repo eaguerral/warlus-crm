@@ -1,233 +1,409 @@
-import React, { useEffect } from "react";
-import { Row, Col, CardBody, Card, Alert, Container, Input, Label, Form, FormFeedback } from "reactstrap";
+import React from "react";
 
-// Formik Validation
+import {
+  Row,
+  Col,
+  CardBody,
+  Card,
+  Alert,
+  Container,
+  Input,
+  Label,
+  Form,
+  FormFeedback,
+} from "reactstrap";
+
 import * as Yup from "yup";
 import { useFormik } from "formik";
 
-// action
-import { registerUser, apiError } from "/src/store/actions";
+import {
+  useDispatch,
+  useSelector,
+} from "react-redux";
 
-//redux
-import { useSelector, useDispatch } from "react-redux";
 import { createSelector } from "reselect";
 
-import { Link } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+} from "react-router-dom";
 
-// import images
+import { registerUser } from "/src/store/actions";
+
 import profileImg from "../../assets/images/profile-img.png";
 import logo from "../../assets/images/logo.svg";
 import lightlogo from "../../assets/images/logo-light.svg";
 
+
 const Register = () => {
-  document.title = "Register | Warlus CRM";
+
+  document.title = "Crear cuenta | Warlus CRM";
 
   const dispatch = useDispatch();
+  const navigate = useNavigate();
+
 
   const validation = useFormik({
-    // enableReinitialize : use this flag when initial values needs to be changed
+
     enableReinitialize: true,
 
     initialValues: {
-      email: '',
-      username: '',
-      password: '',
+      email: "",
+      password: "",
+      confirmPassword: "",
     },
+
     validationSchema: Yup.object({
-      email: Yup.string().required("Please Enter Your Email"),
-      username: Yup.string().required("Please Enter Your Username"),
-      password: Yup.string().required("Please Enter Your Password"),
+
+      email: Yup.string()
+        .email("Ingresa un correo electronico valido")
+        .required("Ingresa tu correo electronico"),
+
+      password: Yup.string()
+        .min(
+          8,
+          "La contraseña debe tener al menos 8 caracteres"
+        )
+        .required("Ingresa una contraseña"),
+
+      confirmPassword: Yup.string()
+        .oneOf(
+          [Yup.ref("password")],
+          "Las contraseñas no coinciden"
+        )
+        .required("Confirma tu contraseña"),
     }),
-    onSubmit: (values) => {
-      dispatch(registerUser(values));
-    }
+
+    onSubmit: values => {
+
+      dispatch(
+        registerUser(
+          {
+            email: values.email,
+            password: values.password,
+          },
+          navigate
+        )
+      );
+    },
   });
 
+
   const AccountProperties = createSelector(
-    (state) => state.Account,
-    (account) => ({
-      user: account.user,
-      registrationError: account.registrationError,
-      // loading: account.loading,
+    state => state.Account,
+    account => ({
+      registrationError:
+        account.registrationError,
+
+      loading:
+        account.loading,
     })
   );
 
+
   const {
-    user,
     registrationError,
-    // loading
+    loading,
   } = useSelector(AccountProperties);
 
-  useEffect(() => {
-    dispatch(apiError(""));
-  }, []);
 
   return (
     <React.Fragment>
 
       <div className="home-btn d-none d-sm-block">
-        <Link to="/" className="text-dark">
+
+        <Link
+          to="/"
+          className="text-dark"
+        >
           <i className="bx bx-home h2" />
         </Link>
+
       </div>
+
+
       <div className="account-pages my-5 pt-sm-5">
+
         <Container>
+
           <Row className="justify-content-center">
+
             <Col md={8} lg={6} xl={5}>
+
               <Card className="overflow-hidden">
+
                 <div className="bg-primary-subtle">
+
                   <Row>
+
                     <Col className="col-7">
+
                       <div className="text-primary p-4">
-                        <h5 className="text-primary">Free Register</h5>
-                        <p>Get your free Warlus CRM account now.</p>
+
+                        <h5 className="text-primary">
+                          Crear cuenta
+                        </h5>
+
+                        <p>
+                          Registra tu cuenta para acceder a Warlus CRM.
+                        </p>
+
                       </div>
+
                     </Col>
+
                     <Col className="col-5 align-self-end">
-                      <img src={profileImg} alt="" className="img-fluid" />
+
+                      <img
+                        src={profileImg}
+                        alt=""
+                        className="img-fluid"
+                      />
+
                     </Col>
+
                   </Row>
+
                 </div>
+
+
                 <CardBody className="pt-0">
+
                   <div className="auth-logo">
-                    <Link to="/" className="auth-logo-light">
+
+                    <Link
+                      to="/"
+                      className="auth-logo-light"
+                    >
+
                       <div className="avatar-md profile-user-wid mb-4">
+
                         <span className="avatar-title rounded-circle bg-light">
+
                           <img
                             src={lightlogo}
                             alt=""
                             className="rounded-circle"
                             height="34"
                           />
+
                         </span>
+
                       </div>
+
                     </Link>
-                    <Link to="/" className="auth-logo-dark">
+
+
+                    <Link
+                      to="/"
+                      className="auth-logo-dark"
+                    >
+
                       <div className="avatar-md profile-user-wid mb-4">
+
                         <span className="avatar-title rounded-circle bg-light">
+
                           <img
                             src={logo}
                             alt=""
                             className="rounded-circle"
                             height="34"
                           />
+
                         </span>
+
                       </div>
+
                     </Link>
+
                   </div>
+
+
                   <div className="p-2">
+
                     <Form
                       className="form-horizontal"
-                      onSubmit={(e) => {
+                      onSubmit={e => {
+
                         e.preventDefault();
+
                         validation.handleSubmit();
+
                         return false;
                       }}
                     >
-                      {user && user ? (
-                        <Alert color="success">
-                          Register User Successfully
+
+                      {registrationError ? (
+
+                        <Alert color="danger">
+                          {registrationError}
                         </Alert>
+
                       ) : null}
 
-                      {registrationError && registrationError ? (
-                        <Alert color="danger">{registrationError}</Alert>
-                      ) : null}
 
                       <div className="mb-3">
-                        <Label className="form-label">Email</Label>
+
+                        <Label className="form-label">
+                          Correo electronico
+                        </Label>
+
                         <Input
-                          id="email"
                           name="email"
-                          className="form-control"
-                          placeholder="Enter email"
                           type="email"
+                          placeholder="Ingresa tu correo"
                           onChange={validation.handleChange}
                           onBlur={validation.handleBlur}
-                          value={validation.values.email || ""}
+                          value={validation.values.email}
                           invalid={
-                            validation.touched.email && validation.errors.email ? true : false
+                            Boolean(
+                              validation.touched.email &&
+                              validation.errors.email
+                            )
                           }
                         />
-                        {validation.touched.email && validation.errors.email ? (
-                          <FormFeedback type="invalid">{validation.errors.email}</FormFeedback>
+
+                        {validation.touched.email &&
+                        validation.errors.email ? (
+
+                          <FormFeedback type="invalid">
+                            {validation.errors.email}
+                          </FormFeedback>
+
                         ) : null}
+
                       </div>
 
+
                       <div className="mb-3">
-                        <Label className="form-label">Username</Label>
-                        <Input
-                          name="username"
-                          type="text"
-                          placeholder="Enter username"
-                          onChange={validation.handleChange}
-                          onBlur={validation.handleBlur}
-                          value={validation.values.username || ""}
-                          invalid={
-                            validation.touched.username && validation.errors.username ? true : false
-                          }
-                        />
-                        {validation.touched.username && validation.errors.username ? (
-                          <FormFeedback type="invalid">{validation.errors.username}</FormFeedback>
-                        ) : null}
-                      </div>
-                      <div className="mb-3">
-                        <Label className="form-label">Password</Label>
+
+                        <Label className="form-label">
+                          Contraseña
+                        </Label>
+
                         <Input
                           name="password"
                           type="password"
-                          placeholder="Enter Password"
+                          autoComplete="new-password"
+                          placeholder="Ingresa tu contraseña"
                           onChange={validation.handleChange}
                           onBlur={validation.handleBlur}
-                          value={validation.values.password || ""}
+                          value={validation.values.password}
                           invalid={
-                            validation.touched.password && validation.errors.password ? true : false
+                            Boolean(
+                              validation.touched.password &&
+                              validation.errors.password
+                            )
                           }
                         />
-                        {validation.touched.password && validation.errors.password ? (
-                          <FormFeedback type="invalid">{validation.errors.password}</FormFeedback>
+
+                        {validation.touched.password &&
+                        validation.errors.password ? (
+
+                          <FormFeedback type="invalid">
+                            {validation.errors.password}
+                          </FormFeedback>
+
                         ) : null}
+
                       </div>
 
-                      <div className="mt-4">
+
+                      <div className="mb-3">
+
+                        <Label className="form-label">
+                          Confirmar contraseña
+                        </Label>
+
+                        <Input
+                          name="confirmPassword"
+                          type="password"
+                          autoComplete="new-password"
+                          placeholder="Confirma tu contraseña"
+                          onChange={validation.handleChange}
+                          onBlur={validation.handleBlur}
+                          value={
+                            validation.values.confirmPassword
+                          }
+                          invalid={
+                            Boolean(
+                              validation.touched.confirmPassword &&
+                              validation.errors.confirmPassword
+                            )
+                          }
+                        />
+
+                        {validation.touched.confirmPassword &&
+                        validation.errors.confirmPassword ? (
+
+                          <FormFeedback type="invalid">
+                            {validation.errors.confirmPassword}
+                          </FormFeedback>
+
+                        ) : null}
+
+                      </div>
+
+
+                      <div className="mt-3 d-grid">
+
                         <button
-                          className="btn btn-primary btn-block "
+                          className="btn btn-primary btn-block"
                           type="submit"
+                          disabled={loading}
                         >
-                          Register
+
+                          {
+                            loading
+                              ? "Creando cuenta..."
+                              : "Crear cuenta"
+                          }
+
                         </button>
+
                       </div>
 
-                      <div className="mt-4 text-center">
-                        <p className="mb-0">
-                          By registering you agree to the Warlus CRM{" "}
-                          <Link to="#" className="text-primary">
-                            Terms of Use
-                          </Link>
-                        </p>
-                      </div>
                     </Form>
+
                   </div>
+
                 </CardBody>
+
               </Card>
+
+
               <div className="mt-5 text-center">
+
                 <p>
-                  Already have an account ?{" "}
-                  <Link to="/login" className="font-weight-medium text-primary">
-                    {" "}
-                    Login
-                  </Link>{" "}
+
+                  ¿Ya tienes una cuenta?{" "}
+
+                  <Link
+                    to="/login"
+                    className="font-weight-medium text-primary"
+                  >
+                    Iniciar sesion
+                  </Link>
+
                 </p>
+
                 <p>
                   © {new Date().getFullYear()} Warlus CRM.
                 </p>
+
               </div>
+
             </Col>
+
           </Row>
+
         </Container>
+
       </div>
+
     </React.Fragment>
   );
 };
+
 
 export default Register;
